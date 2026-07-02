@@ -6,6 +6,8 @@ import { DialogScene } from './scenes/dialog';
 import { ChoiceScene } from './scenes/choice';
 import { addItem, makeMonster } from './state';
 import { species } from './data/species';
+import { PcScene } from './scenes/pcbox';
+import { ShopScene } from './scenes/shop';
 
 // Returns dialog to show instead of allowing the player onto (x, y).
 export function blocksMove(g: GameContext, mapId: string, x: number, y: number): string[] | null {
@@ -42,6 +44,27 @@ const STARTERS: Record<string, { speciesId: string; rivalPick: string; blurb: st
 };
 
 export function handleEvent(g: GameContext, id: string): void {
+  if (id === 'nurse_heal') {
+    g.scenes.push(
+      new DialogScene(['NURSE: Welcome to the CHIMERA CENTER!', 'Let me patch up your team...'], () => {
+        for (const mon of g.state.party) {
+          mon.hp = mon.stats.hp;
+          mon.status = 'OK';
+          for (const slot of mon.moves) slot.pp = slot.maxPp;
+        }
+        g.scenes.push(new DialogScene(['NURSE: All better! We hope to see you again!']));
+      }),
+    );
+    return;
+  }
+  if (id === 'pc_access') {
+    g.scenes.push(new PcScene());
+    return;
+  }
+  if (id === 'shop_kyma') {
+    g.scenes.push(new ShopScene(['capsule', 'tonic', 'antivenom', 'nervesalt']));
+    return;
+  }
   const starter = STARTERS[id];
   if (starter) {
     const { flags } = g.state;

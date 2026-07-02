@@ -10,6 +10,7 @@ import type { GameState } from '../state';
 import { DialogScene } from './dialog';
 import { BattleScene } from './battle';
 import { EvolutionScene } from './evolution';
+import { StartMenuScene } from './menus';
 import { FadeTransition } from './transition';
 import { species } from '../data/species';
 
@@ -256,7 +257,8 @@ export class OverworldScene implements Scene {
     const npc = this.npcs.find((n) => !n.moving && n.x === fx && n.y === fy);
     if (npc) {
       npc.dir = opposite(this.player.dir);
-      g.scenes.push(new DialogScene(npc.def.dialog));
+      if (npc.def.event) handleEvent(g, npc.def.event);
+      else g.scenes.push(new DialogScene(npc.def.dialog));
       return;
     }
     const sign = this.map.signAt(fx, fy);
@@ -294,6 +296,10 @@ export class OverworldScene implements Scene {
       if (g.input.wasPressed('A')) {
         this.interact(g);
         if (g.scenes.top !== this) return;
+      }
+      if (g.input.wasPressed('START')) {
+        g.scenes.push(new StartMenuScene());
+        return;
       }
       const dirBtn = g.input.heldDirection();
       if (dirBtn) {
@@ -339,6 +345,8 @@ export class OverworldScene implements Scene {
       moving: this.player.moving,
       party: this.state.party.map((m) => `${m.speciesId}:${m.level}:${m.hp}/${m.stats.hp}`),
       bag: Object.entries(this.state.bag).map(([id, n]) => `${id}:${n}`),
+      money: this.state.money,
+      pcCount: this.state.pc.length,
       seen: Object.keys(this.state.seenDex).length,
       caught: Object.keys(this.state.caughtDex).length,
       flags: Object.keys(this.state.flags).filter((k) => this.state.flags[k]),

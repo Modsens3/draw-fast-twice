@@ -224,19 +224,23 @@ const KYMA_TOWN: MapDef = {
     'T....rrrr....,.....T',
     'T....wodw..........T',
     'T..................T',
-    'T........,.........T',
-    'T..............,...T',
-    'T..................T',
-    'T..................T',
+    'T..rrrr....rrrr....T',
+    'T..rrrr....rrrr....T',
+    'T..wodw....wodw....T',
+    'T.S...........S....T',
     'T..................T',
     'TTTTTTTT..TTTTTTTTTT',
   ],
   warps: [
     { x: 5, y: 4, toMap: 'kyma_house', toX: 5, toY: 6, toDir: 'up' },
     { x: 7, y: 10, toMap: 'kyma_house2', toX: 5, toY: 6, toDir: 'up' },
+    { x: 5, y: 14, toMap: 'kyma_mart', toX: 5, toY: 6, toDir: 'up' },
+    { x: 13, y: 14, toMap: 'kyma_center', toX: 5, toY: 6, toDir: 'up' },
   ],
   signs: [
     { x: 2, y: 6, text: ['KYMA TOWN', 'The waves carry every story here.'] },
+    { x: 2, y: 15, text: ['KYMA MART', 'Gear for every journey!'] },
+    { x: 14, y: 15, text: ['CHIMERA CENTER', 'Free care for tired CHIMERA.'] },
   ],
   npcs: [
     {
@@ -342,6 +346,77 @@ const KYMA_HOUSE2: MapDef = {
   ],
 };
 
+const KYMA_CENTER: MapDef = {
+  id: 'kyma_center',
+  name: 'CHIMERA CENTER',
+  outdoor: false,
+  border: 'iwall',
+  legend: INDOOR_LEGEND,
+  rows: [
+    'IIIIIIIIIIII',
+    'IffffffffftI',
+    'IffffffffffI',
+    'IffttfttfffI',
+    'IffffffffffI',
+    'IffffffffffI',
+    'IffffmmffffI',
+    'IIIIIIIIIIII',
+  ],
+  warps: [
+    { x: 5, y: 6, toMap: 'kyma_town', toX: 13, toY: 15, toDir: 'down' },
+    { x: 6, y: 6, toMap: 'kyma_town', toX: 13, toY: 15, toDir: 'down' },
+  ],
+  signs: [],
+  events: [{ x: 10, y: 1, id: 'pc_access' }],
+  npcs: [
+    {
+      id: 'nurse',
+      x: 5,
+      y: 3,
+      sprite: 'villager',
+      dir: 'down',
+      movement: 'static',
+      dialog: [],
+      event: 'nurse_heal',
+    },
+  ],
+};
+
+const KYMA_MART: MapDef = {
+  id: 'kyma_mart',
+  name: 'KYMA MART',
+  outdoor: false,
+  border: 'iwall',
+  legend: INDOOR_LEGEND,
+  rows: [
+    'IIIIIIIIIIII',
+    'IttffffffttI',
+    'IffffffffffI',
+    'IffttfttfffI',
+    'IffffffffffI',
+    'IffffffffffI',
+    'IffffmmffffI',
+    'IIIIIIIIIIII',
+  ],
+  warps: [
+    { x: 5, y: 6, toMap: 'kyma_town', toX: 5, toY: 15, toDir: 'down' },
+    { x: 6, y: 6, toMap: 'kyma_town', toX: 5, toY: 15, toDir: 'down' },
+  ],
+  signs: [],
+  npcs: [
+    {
+      id: 'mart_clerk',
+      x: 5,
+      y: 3,
+      sprite: 'villager',
+      dir: 'down',
+      movement: 'static',
+      dialog: [],
+      event: 'shop_kyma',
+    },
+  ],
+};
+
 const ROUTE1: MapDef = {
   id: 'route1',
   name: 'ROUTE 1',
@@ -408,6 +483,8 @@ const DEFS = [
   KYMA_TOWN,
   KYMA_HOUSE,
   KYMA_HOUSE2,
+  KYMA_CENTER,
+  KYMA_MART,
   ROUTE1,
 ];
 

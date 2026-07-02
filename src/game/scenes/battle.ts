@@ -532,8 +532,8 @@ export class BattleScene implements Scene {
             if (g.state.party.length < 6) {
               g.state.party.push(this.enemy.mon);
             } else {
-              this.prepend([{ text: `${species(this.enemy.mon.speciesId).name} was sent to the LAB!` }]);
-              g.state.flags[`stored_${this.enemy.mon.speciesId}`] = true;
+              this.prepend([{ text: `${species(this.enemy.mon.speciesId).name} was sent to the STORAGE PC!` }]);
+              g.state.pc.push(this.enemy.mon);
             }
             this.finish('caught');
           },

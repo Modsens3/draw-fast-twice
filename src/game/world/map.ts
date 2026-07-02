@@ -24,6 +24,8 @@ export interface NpcDef {
   dir: Dir;
   movement: 'static' | 'wander';
   dialog: string[];
+  // When set, talking to this NPC fires a story event instead of plain dialog.
+  event?: string;
 }
 
 export interface EventDef {

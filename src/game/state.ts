@@ -117,6 +117,7 @@ export interface GameState {
   rivalName: string;
   money: number;
   party: Monster[];
+  pc: Monster[];
   bag: Record<string, number>;
   seenDex: Record<string, boolean>;
   caughtDex: Record<string, boolean>;
@@ -147,6 +148,7 @@ export function newGameState(): GameState {
     rivalName: 'THERON',
     money: 3000,
     party: [],
+    pc: [],
     bag: {},
     seenDex: {},
     caughtDex: {},
