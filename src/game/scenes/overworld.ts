@@ -3,8 +3,12 @@ import { Screen, SCREEN_H, SCREEN_W } from '../engine/screen';
 import { TILE, tileCanvas } from '../world/tiles';
 import { charSprites, Dir, DIR_DELTA, SpriteId } from '../world/sprites';
 import { GameMap, NpcDef } from '../world/map';
-import { getMap, START_MAP, START_POS } from '../data/maps';
+import { getMap } from '../data/maps';
+import { rollEncounter } from '../data/encounters';
+import { blocksMove, handleEvent } from '../story';
+import type { GameState } from '../state';
 import { DialogScene } from './dialog';
+import { EncounterScene } from './encounter';
 import { FadeTransition } from './transition';
 
 const WALK_TICKS = 15; // ~0.25s per tile, matching GB walking speed
@@ -67,11 +71,21 @@ export class OverworldScene implements Scene {
   private player: Mover;
   private npcs: Npc[] = [];
   private warping = false;
+  private state: GameState;
 
-  constructor() {
-    this.map = getMap(START_MAP);
-    this.player = makeMover(START_POS.x, START_POS.y, 'down', 'player');
+  constructor(state: GameState) {
+    this.state = state;
+    this.map = getMap(state.mapId);
+    this.player = makeMover(state.x, state.y, state.dir, 'player');
     this.loadNpcs();
+  }
+
+  // Keep the persistent state in sync with the player's position.
+  private syncState(): void {
+    this.state.mapId = this.map.def.id;
+    this.state.x = this.player.x;
+    this.state.y = this.player.y;
+    this.state.dir = this.player.dir;
   }
 
   private loadNpcs(): void {
@@ -174,10 +188,12 @@ export class OverworldScene implements Scene {
     this.player.progress = 0;
     this.player.parity = !this.player.parity;
     this.player.hopping = false;
+    this.syncState();
     return true;
   }
 
   private finishPlayerStep(g: GameContext): void {
+    this.syncState();
     const b = this.map.behaviorAt(this.player.x, this.player.y);
     if (b === 'door' || b === 'mat') {
       const warp = this.map.warpAt(this.player.x, this.player.y);
@@ -189,11 +205,18 @@ export class OverworldScene implements Scene {
             this.player = makeMover(warp.toX, warp.toY, warp.toDir, 'player');
             this.loadNpcs();
             this.warping = false;
+            this.syncState();
           }),
         );
       }
+      return;
     }
-    // 'grass' behavior will roll wild encounters once battles exist (M2/M3).
+    if (b === 'grass' && g.state.party.length > 0) {
+      const slot = rollEncounter(this.map.def.id);
+      if (slot) {
+        g.scenes.push(new EncounterScene(slot.speciesId, slot.level));
+      }
+    }
   }
 
   private interact(g: GameContext): void {
@@ -209,6 +232,11 @@ export class OverworldScene implements Scene {
     const sign = this.map.signAt(fx, fy);
     if (sign) {
       g.scenes.push(new DialogScene(sign.text));
+      return;
+    }
+    const event = this.map.eventAt(fx, fy);
+    if (event) {
+      handleEvent(g, event.id);
     }
   }
 
@@ -238,7 +266,14 @@ export class OverworldScene implements Scene {
       const dirBtn = g.input.heldDirection();
       if (dirBtn) {
         const dir = dirBtn.toLowerCase() as Dir;
-        this.tryStartMove(this.player, dir, false);
+        const [dx, dy] = DIR_DELTA[dir];
+        const blocked = blocksMove(g, this.map.def.id, this.player.x + dx, this.player.y + dy);
+        if (blocked) {
+          this.player.dir = dir;
+          g.scenes.push(new DialogScene(blocked));
+          return;
+        }
+        if (this.tryStartMove(this.player, dir, false)) this.syncState();
       }
     }
 
@@ -253,7 +288,7 @@ export class OverworldScene implements Scene {
         const [dx, dy] = DIR_DELTA[dir];
         const tx = npc.x + dx;
         const ty = npc.y + dy;
-        if (Math.abs(tx - npc.homeX) <= 3 && Math.abs(ty - npc.homeY) <= 3) {
+        if (Math.abs(tx - npc.homeX) <= 2 && Math.abs(ty - npc.homeY) <= 2) {
           this.tryStartMove(npc, dir, true);
         } else {
           npc.dir = dir;
@@ -263,13 +298,15 @@ export class OverworldScene implements Scene {
   }
 
   // Snapshot for automated tests and debugging.
-  debug(): { mapId: string; x: number; y: number; dir: Dir; moving: boolean } {
+  debug(): Record<string, unknown> {
     return {
       mapId: this.map.def.id,
       x: this.player.x,
       y: this.player.y,
       dir: this.player.dir,
       moving: this.player.moving,
+      party: this.state.party.map((m) => `${m.speciesId}:${m.level}`),
+      flags: Object.keys(this.state.flags).filter((k) => this.state.flags[k]),
     };
   }
 

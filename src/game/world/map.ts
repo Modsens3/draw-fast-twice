@@ -26,6 +26,12 @@ export interface NpcDef {
   dialog: string[];
 }
 
+export interface EventDef {
+  x: number;
+  y: number;
+  id: string;
+}
+
 export interface Connection {
   toMap: string;
   // Tile offset added to the crossing axis coordinate when entering the destination map.
@@ -42,6 +48,7 @@ export interface MapDef {
   warps: Warp[];
   signs: SignDef[];
   npcs: NpcDef[];
+  events?: EventDef[];
   connections?: Partial<Record<'north' | 'south' | 'east' | 'west', Connection>>;
 }
 
@@ -83,6 +90,10 @@ export class GameMap {
 
   signAt(x: number, y: number): SignDef | undefined {
     return this.def.signs.find((s) => s.x === x && s.y === y);
+  }
+
+  eventAt(x: number, y: number): EventDef | undefined {
+    return this.def.events?.find((e) => e.x === x && e.y === y);
   }
 
   get pixelWidth(): number {

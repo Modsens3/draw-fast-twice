@@ -1,10 +1,12 @@
 import type { Screen } from './screen';
 import type { Input } from './input';
+import type { GameState } from '../state';
 
 export interface GameContext {
   screen: Screen;
   input: Input;
   scenes: SceneStack;
+  state: GameState;
 }
 
 export interface Scene {

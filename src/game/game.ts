@@ -1,6 +1,7 @@
 import { Input } from './engine/input';
 import { Screen } from './engine/screen';
 import { GameContext, SceneStack } from './engine/scene';
+import { GameState, newGameState } from './state';
 import { TitleScene } from './scenes/title';
 
 const STEP = 1000 / 60;
@@ -9,6 +10,7 @@ export class Game implements GameContext {
   readonly screen = new Screen();
   readonly input = new Input();
   readonly scenes = new SceneStack();
+  state: GameState = newGameState();
 
   private raf = 0;
   private last = 0;

@@ -1,7 +1,7 @@
 import type { GameContext, Scene } from '../engine/scene';
 import { Screen, SCREEN_H, SCREEN_W } from '../engine/screen';
 import { textWidth } from '../engine/font';
-import { OverworldScene } from './overworld';
+import { IntroScene } from './intro';
 
 export class TitleScene implements Scene {
   readonly debugName = 'title';
@@ -11,7 +11,7 @@ export class TitleScene implements Scene {
   update(g: GameContext): void {
     this.tick++;
     if (g.input.wasPressed('START') || g.input.wasPressed('A')) {
-      g.scenes.replace(new OverworldScene());
+      g.scenes.replace(new IntroScene());
     }
   }
 
