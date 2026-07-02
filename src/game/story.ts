@@ -4,7 +4,7 @@
 import type { GameContext } from './engine/scene';
 import { DialogScene } from './scenes/dialog';
 import { ChoiceScene } from './scenes/choice';
-import { makeMonster } from './state';
+import { addItem, makeMonster } from './state';
 import { species } from './data/species';
 
 // Returns dialog to show instead of allowing the player onto (x, y).
@@ -58,12 +58,17 @@ export function handleEvent(g: GameContext, id: string): void {
             g.state.party.push(makeMonster(starter.speciesId, 5));
             flags.starter = true;
             flags[`rival_has_${starter.rivalPick}`] = true;
+            g.state.seenDex[starter.speciesId] = true;
+            g.state.caughtDex[starter.speciesId] = true;
+            addItem(g.state, 'capsule', 5);
+            addItem(g.state, 'tonic', 3);
             const rivalDef = species(starter.rivalPick);
             g.scenes.push(
               new DialogScene([
                 `${g.state.playerName} received ${def.name}!`,
                 `PROF. LAUREL: Splendid! Take good care of ${def.name}.`,
                 `${g.state.rivalName}: Heh, then I will take ${rivalDef.name}. It has the edge over yours!`,
+                'PROF. LAUREL: Take these too: 5 CAPSULES to catch wild CHIMERA, and 3 TONICS.',
                 'PROF. LAUREL: Off you go, you two. Your own legends are about to unfold!',
               ]),
             );

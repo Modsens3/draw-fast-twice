@@ -117,6 +117,9 @@ export interface GameState {
   rivalName: string;
   money: number;
   party: Monster[];
+  bag: Record<string, number>;
+  seenDex: Record<string, boolean>;
+  caughtDex: Record<string, boolean>;
   flags: Record<string, boolean>;
   // Overworld position, kept here so scenes can be rebuilt freely.
   mapId: string;
@@ -125,12 +128,28 @@ export interface GameState {
   dir: 'up' | 'down' | 'left' | 'right';
 }
 
+export function addItem(state: GameState, itemId: string, count: number): void {
+  state.bag[itemId] = (state.bag[itemId] ?? 0) + count;
+  if (state.bag[itemId] <= 0) delete state.bag[itemId];
+}
+
+// Recompute cached stats (level-ups, stat exp changes), preserving HP damage.
+export function refreshStats(mon: Monster): void {
+  const def = species(mon.speciesId);
+  const damage = mon.stats.hp - mon.hp;
+  mon.stats = computeStats(def, mon.level, mon.dvs, mon.statExp);
+  mon.hp = Math.max(0, mon.stats.hp - damage);
+}
+
 export function newGameState(): GameState {
   return {
     playerName: 'MILO',
     rivalName: 'THERON',
     money: 3000,
     party: [],
+    bag: {},
+    seenDex: {},
+    caughtDex: {},
     flags: {},
     mapId: 'player_house',
     x: 4,

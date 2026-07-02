@@ -8,8 +8,10 @@ import { rollEncounter } from '../data/encounters';
 import { blocksMove, handleEvent } from '../story';
 import type { GameState } from '../state';
 import { DialogScene } from './dialog';
-import { EncounterScene } from './encounter';
+import { BattleScene } from './battle';
+import { EvolutionScene } from './evolution';
 import { FadeTransition } from './transition';
+import { species } from '../data/species';
 
 const WALK_TICKS = 15; // ~0.25s per tile, matching GB walking speed
 const HOP_TICKS = 30;
@@ -214,7 +216,35 @@ export class OverworldScene implements Scene {
     if (b === 'grass' && g.state.party.length > 0) {
       const slot = rollEncounter(this.map.def.id);
       if (slot) {
-        g.scenes.push(new EncounterScene(slot.speciesId, slot.level));
+        g.scenes.push(new BattleScene(slot.speciesId, slot.level));
+      }
+    }
+  }
+
+  // After battles: relocate on blackout, then run any pending evolutions.
+  private handlePostBattle(g: GameContext): void {
+    if (g.state.flags.blackout) {
+      g.state.flags.blackout = false;
+      this.map = getMap(g.state.mapId);
+      this.player = makeMover(g.state.x, g.state.y, g.state.dir, 'player');
+      this.loadNpcs();
+      g.scenes.push(
+        new DialogScene([
+          `MOM: ${g.state.playerName}! You look exhausted!`,
+          'I patched your team right up. Rest a moment before heading out again.',
+        ]),
+      );
+      return;
+    }
+    for (const mon of g.state.party) {
+      const flag = `evolve_${mon.speciesId}`;
+      if (g.state.flags[flag]) {
+        delete g.state.flags[flag];
+        const evo = species(mon.speciesId).evolution;
+        if (evo && mon.level >= evo.level) {
+          g.scenes.push(new EvolutionScene(mon, evo.into));
+          return;
+        }
       }
     }
   }
@@ -242,6 +272,8 @@ export class OverworldScene implements Scene {
 
   update(g: GameContext): void {
     if (this.warping) return;
+    this.handlePostBattle(g);
+    if (g.scenes.top !== this) return;
 
     // Advance movement.
     for (const m of [this.player as Mover, ...this.npcs]) {
@@ -305,7 +337,10 @@ export class OverworldScene implements Scene {
       y: this.player.y,
       dir: this.player.dir,
       moving: this.player.moving,
-      party: this.state.party.map((m) => `${m.speciesId}:${m.level}`),
+      party: this.state.party.map((m) => `${m.speciesId}:${m.level}:${m.hp}/${m.stats.hp}`),
+      bag: Object.entries(this.state.bag).map(([id, n]) => `${id}:${n}`),
+      seen: Object.keys(this.state.seenDex).length,
+      caught: Object.keys(this.state.caughtDex).length,
       flags: Object.keys(this.state.flags).filter((k) => this.state.flags[k]),
     };
   }
