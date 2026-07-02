@@ -1,0 +1,311 @@
+import type { GameContext, Scene } from '../engine/scene';
+import { Screen, SCREEN_H, SCREEN_W } from '../engine/screen';
+import { TILE, tileCanvas } from '../world/tiles';
+import { charSprites, Dir, DIR_DELTA, SpriteId } from '../world/sprites';
+import { GameMap, NpcDef } from '../world/map';
+import { getMap, START_MAP, START_POS } from '../data/maps';
+import { DialogScene } from './dialog';
+import { FadeTransition } from './transition';
+
+const WALK_TICKS = 15; // ~0.25s per tile, matching GB walking speed
+const HOP_TICKS = 30;
+
+interface Mover {
+  x: number;
+  y: number;
+  dir: Dir;
+  sprite: SpriteId;
+  moving: boolean;
+  fromX: number;
+  fromY: number;
+  progress: number; // 0..1 across the step
+  parity: boolean; // alternates each step for stride A/B
+  hopping: boolean;
+}
+
+interface Npc extends Mover {
+  def: NpcDef;
+  homeX: number;
+  homeY: number;
+  timer: number;
+}
+
+function makeMover(x: number, y: number, dir: Dir, sprite: SpriteId): Mover {
+  return {
+    x,
+    y,
+    dir,
+    sprite,
+    moving: false,
+    fromX: x,
+    fromY: y,
+    progress: 1,
+    parity: false,
+    hopping: false,
+  };
+}
+
+function pixelPos(m: Mover): { px: number; py: number } {
+  const t = m.moving ? m.progress : 1;
+  const px = (m.fromX + (m.x - m.fromX) * t) * TILE;
+  let py = (m.fromY + (m.y - m.fromY) * t) * TILE;
+  if (m.hopping && m.moving) {
+    // Simple ledge-hop arc.
+    py -= Math.sin(t * Math.PI) * 6;
+  }
+  return { px, py };
+}
+
+function opposite(d: Dir): Dir {
+  return d === 'up' ? 'down' : d === 'down' ? 'up' : d === 'left' ? 'right' : 'left';
+}
+
+export class OverworldScene implements Scene {
+  readonly debugName = 'overworld';
+
+  private map: GameMap;
+  private player: Mover;
+  private npcs: Npc[] = [];
+  private warping = false;
+
+  constructor() {
+    this.map = getMap(START_MAP);
+    this.player = makeMover(START_POS.x, START_POS.y, 'down', 'player');
+    this.loadNpcs();
+  }
+
+  private loadNpcs(): void {
+    this.npcs = this.map.def.npcs.map((def) => ({
+      ...makeMover(def.x, def.y, def.dir, def.sprite),
+      def,
+      homeX: def.x,
+      homeY: def.y,
+      timer: 60 + Math.floor(Math.random() * 120),
+    }));
+  }
+
+  private occupied(x: number, y: number, ignore?: Mover): boolean {
+    const movers: Mover[] = [this.player, ...this.npcs];
+    return movers.some(
+      (m) =>
+        m !== ignore &&
+        ((m.x === x && m.y === y) || (m.moving && m.fromX === x && m.fromY === y)),
+    );
+  }
+
+  private passable(x: number, y: number, forNpc: boolean): boolean {
+    const b = this.map.behaviorAt(x, y);
+    if (b === 'solid' || b === 'water' || b === 'ledge') return false;
+    if (forNpc && (b === 'door' || b === 'mat' || b === 'grass')) return false;
+    return true;
+  }
+
+  private tryStartMove(m: Mover, dir: Dir, forNpc: boolean): boolean {
+    m.dir = dir;
+    const [dx, dy] = DIR_DELTA[dir];
+    const tx = m.x + dx;
+    const ty = m.y + dy;
+
+    if (!forNpc && !this.map.inBounds(tx, ty)) {
+      return this.tryCrossEdge(tx, ty, dir);
+    }
+
+    const behavior = this.map.behaviorAt(tx, ty);
+    // Ledges can only be hopped from above, landing one tile further.
+    if (!forNpc && behavior === 'ledge' && dir === 'down') {
+      const lx = tx;
+      const ly = ty + 1;
+      if (this.passable(lx, ly, false) && !this.occupied(lx, ly, m)) {
+        m.fromX = m.x;
+        m.fromY = m.y;
+        m.x = lx;
+        m.y = ly;
+        m.moving = true;
+        m.progress = 0;
+        m.parity = !m.parity;
+        m.hopping = true;
+        return true;
+      }
+      return false;
+    }
+
+    if (!this.passable(tx, ty, forNpc) || this.occupied(tx, ty, m)) return false;
+    m.fromX = m.x;
+    m.fromY = m.y;
+    m.x = tx;
+    m.y = ty;
+    m.moving = true;
+    m.progress = 0;
+    m.parity = !m.parity;
+    m.hopping = false;
+    return true;
+  }
+
+  // Walking off the map edge follows the map connection, GB-style.
+  private tryCrossEdge(tx: number, ty: number, dir: Dir): boolean {
+    const conns = this.map.def.connections;
+    if (!conns) return false;
+    const side = ty < 0 ? 'north' : ty >= this.map.height ? 'south' : tx < 0 ? 'west' : 'east';
+    const conn = conns[side];
+    if (!conn) return false;
+    const dest = getMap(conn.toMap);
+    let nx: number;
+    let ny: number;
+    if (side === 'north' || side === 'south') {
+      nx = this.player.x + conn.offset;
+      ny = side === 'north' ? dest.height - 1 : 0;
+    } else {
+      ny = this.player.y + conn.offset;
+      nx = side === 'west' ? dest.width - 1 : 0;
+    }
+    if (!dest.inBounds(nx, ny)) return false;
+    const b = dest.behaviorAt(nx, ny);
+    if (b === 'solid' || b === 'water' || b === 'ledge') return false;
+
+    this.map = dest;
+    this.loadNpcs();
+    // Start just off-map on the destination side and step in.
+    const [dx, dy] = DIR_DELTA[dir];
+    this.player.fromX = nx - dx;
+    this.player.fromY = ny - dy;
+    this.player.x = nx;
+    this.player.y = ny;
+    this.player.moving = true;
+    this.player.progress = 0;
+    this.player.parity = !this.player.parity;
+    this.player.hopping = false;
+    return true;
+  }
+
+  private finishPlayerStep(g: GameContext): void {
+    const b = this.map.behaviorAt(this.player.x, this.player.y);
+    if (b === 'door' || b === 'mat') {
+      const warp = this.map.warpAt(this.player.x, this.player.y);
+      if (warp) {
+        this.warping = true;
+        g.scenes.push(
+          new FadeTransition(() => {
+            this.map = getMap(warp.toMap);
+            this.player = makeMover(warp.toX, warp.toY, warp.toDir, 'player');
+            this.loadNpcs();
+            this.warping = false;
+          }),
+        );
+      }
+    }
+    // 'grass' behavior will roll wild encounters once battles exist (M2/M3).
+  }
+
+  private interact(g: GameContext): void {
+    const [dx, dy] = DIR_DELTA[this.player.dir];
+    const fx = this.player.x + dx;
+    const fy = this.player.y + dy;
+    const npc = this.npcs.find((n) => !n.moving && n.x === fx && n.y === fy);
+    if (npc) {
+      npc.dir = opposite(this.player.dir);
+      g.scenes.push(new DialogScene(npc.def.dialog));
+      return;
+    }
+    const sign = this.map.signAt(fx, fy);
+    if (sign) {
+      g.scenes.push(new DialogScene(sign.text));
+    }
+  }
+
+  update(g: GameContext): void {
+    if (this.warping) return;
+
+    // Advance movement.
+    for (const m of [this.player as Mover, ...this.npcs]) {
+      if (m.moving) {
+        m.progress += 1 / (m.hopping ? HOP_TICKS : WALK_TICKS);
+        if (m.progress >= 1) {
+          m.progress = 1;
+          m.moving = false;
+          m.hopping = false;
+          if (m === this.player) this.finishPlayerStep(g);
+        }
+      }
+    }
+    if (this.warping) return;
+
+    // Player input.
+    if (!this.player.moving) {
+      if (g.input.wasPressed('A')) {
+        this.interact(g);
+        if (g.scenes.top !== this) return;
+      }
+      const dirBtn = g.input.heldDirection();
+      if (dirBtn) {
+        const dir = dirBtn.toLowerCase() as Dir;
+        this.tryStartMove(this.player, dir, false);
+      }
+    }
+
+    // NPC wandering.
+    for (const npc of this.npcs) {
+      if (npc.moving || npc.def.movement !== 'wander') continue;
+      npc.timer--;
+      if (npc.timer <= 0) {
+        npc.timer = 60 + Math.floor(Math.random() * 150);
+        const dirs: Dir[] = ['up', 'down', 'left', 'right'];
+        const dir = dirs[Math.floor(Math.random() * dirs.length)];
+        const [dx, dy] = DIR_DELTA[dir];
+        const tx = npc.x + dx;
+        const ty = npc.y + dy;
+        if (Math.abs(tx - npc.homeX) <= 3 && Math.abs(ty - npc.homeY) <= 3) {
+          this.tryStartMove(npc, dir, true);
+        } else {
+          npc.dir = dir;
+        }
+      }
+    }
+  }
+
+  // Snapshot for automated tests and debugging.
+  debug(): { mapId: string; x: number; y: number; dir: Dir; moving: boolean } {
+    return {
+      mapId: this.map.def.id,
+      x: this.player.x,
+      y: this.player.y,
+      dir: this.player.dir,
+      moving: this.player.moving,
+    };
+  }
+
+  private camera(): { camX: number; camY: number } {
+    const { px, py } = pixelPos(this.player);
+    const clampAxis = (want: number, mapPixels: number, screenPixels: number) => {
+      if (mapPixels <= screenPixels) return -Math.floor((screenPixels - mapPixels) / 2);
+      return Math.max(0, Math.min(mapPixels - screenPixels, want));
+    };
+    return {
+      camX: clampAxis(Math.round(px) - (SCREEN_W / 2 - TILE / 2), this.map.pixelWidth, SCREEN_W),
+      camY: clampAxis(Math.round(py) - (SCREEN_H / 2 - TILE / 2), this.map.pixelHeight, SCREEN_H),
+    };
+  }
+
+  draw(g: GameContext, s: Screen): void {
+    const { camX, camY } = this.camera();
+    const x0 = Math.floor(camX / TILE) - 1;
+    const y0 = Math.floor(camY / TILE) - 1;
+    const x1 = Math.ceil((camX + SCREEN_W) / TILE) + 1;
+    const y1 = Math.ceil((camY + SCREEN_H) / TILE) + 1;
+    for (let ty = y0; ty <= y1; ty++) {
+      for (let tx = x0; tx <= x1; tx++) {
+        s.blit(tileCanvas(this.map.tileAt(tx, ty)), tx * TILE - camX, ty * TILE - camY);
+      }
+    }
+
+    const movers: Mover[] = [...this.npcs, this.player];
+    movers.sort((a, b) => pixelPos(a).py - pixelPos(b).py);
+    for (const m of movers) {
+      const { px, py } = pixelPos(m);
+      const frames = charSprites(m.sprite)[m.dir];
+      let frame = 0;
+      if (m.moving && m.progress < 0.5) frame = m.parity ? 1 : 2;
+      // Characters sit slightly above their tile so they overlap the tile behind.
+      s.blit(frames[frame], px - camX, py - camY - 4);
+    }
+  }
+}
