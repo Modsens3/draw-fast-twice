@@ -10,6 +10,110 @@ import { move } from './data/moves';
 import { PcScene } from './scenes/pcbox';
 import { ShopScene } from './scenes/shop';
 import { TeamScene } from './scenes/menus';
+import { BattleScene } from './scenes/battle';
+import { HallOfFameScene } from './scenes/halloffame';
+
+const REQUIRED_BADGES = ['badge_cliff', 'badge_tide', 'badge_gale'] as const;
+
+export function badgeCount(g: GameContext): number {
+  return REQUIRED_BADGES.filter((b) => g.state.flags[b]).length;
+}
+
+// The Elite Four + Champion gauntlet. Original names; parties drawn from the
+// region's own species at endgame levels. Built fresh each run so re-challenges
+// (post-game) always face full-health teams.
+interface EliteMember {
+  id: string;
+  name: string;
+  party: [string, number][];
+  prize: number;
+  winText: string[];
+}
+
+const ELITE_FOUR: EliteMember[] = [
+  {
+    id: 'elite_kallias',
+    name: 'ELITE KALLIAS',
+    party: [['petrock', 40], ['crystrag', 41], ['rimehorn', 43]],
+    prize: 5000,
+    winText: ['KALLIAS: Stone yields to the storm in you. Pass.'],
+  },
+  {
+    id: 'elite_thera',
+    name: 'ELITE THERA',
+    party: [['nereidon', 41], ['pelagorn', 42], ['urchidon', 44]],
+    prize: 5000,
+    winText: ['THERA: The tide chose you. So be it.'],
+  },
+  {
+    id: 'elite_orion',
+    name: 'ELITE ORION',
+    party: [['vesperyx', 42], ['gloomurn', 43], ['vipryss', 45]],
+    prize: 5000,
+    winText: ['ORION: Shadows part before you. Onward.'],
+  },
+  {
+    id: 'elite_zephyra',
+    name: 'ELITE ZEPHYRA',
+    party: [['sparhawk', 44], ['voltarion', 45], ['drakainos', 47]],
+    prize: 5000,
+    winText: ['ZEPHYRA: The last wind falls. Only the CHAMPION remains...'],
+  },
+];
+
+function championMember(g: GameContext): EliteMember {
+  const rival = rivalStarterId(g);
+  // The champion is your rival, his starter fully evolved leading the team.
+  const rivalFinal: Record<string, string> = {
+    olivet: 'olivyrm',
+    pyrling: 'pyrvorax',
+    nerida: 'nereidon',
+  };
+  return {
+    id: 'champion_theron',
+    name: `CHAMPION ${g.state.rivalName}`,
+    party: [
+      ['sparhawk', 45],
+      ['myserker', 45],
+      ['crystrag', 46],
+      ['gloomurn', 46],
+      [rivalFinal[rival] ?? 'pyrvorax', 50],
+    ],
+    prize: 12000,
+    winText: [
+      `${g.state.rivalName}: ...No. I trained every day. I was the strongest!`,
+      `${g.state.rivalName}: But you... you had something I never did.`,
+      'PROF. LAUREL: There you are! ...And you have already won it all.',
+      `PROF. LAUREL: ${g.state.playerName}, you are the new CHAMPION of OLYMPIA!`,
+    ],
+  };
+}
+
+// Runs the Elite Four → Champion gauntlet as a chain of trainer battles,
+// with no healing in between (Gen 1 style).
+function runEliteChain(g: GameContext, index: number): void {
+  const members = [...ELITE_FOUR, championMember(g)];
+  if (index >= members.length) {
+    g.state.flags.champion = true;
+    for (const m of members) g.state.flags[`beat_${m.id}`] = true;
+    g.scenes.push(new HallOfFameScene());
+    return;
+  }
+  const member = members[index];
+  g.scenes.push(
+    BattleScene.forTrainer({
+      name: member.name,
+      party: member.party.map(([id, level]) => makeMonster(id, level)),
+      prize: member.prize,
+      smart: true,
+      winText: member.winText,
+      onWin: () => {
+        g.state.flags[`beat_${member.id}`] = true;
+        runEliteChain(g, index + 1);
+      },
+    }),
+  );
+}
 
 // Day-care growth: silent level-ups, auto-learning moves by overwriting the
 // oldest slot, no evolutions — matching the original day-care behavior.
@@ -41,6 +145,15 @@ export function blocksMove(g: GameContext, mapId: string, x: number, y: number):
       'Wild CHIMERA live in tall grass. You need one of your own for protection.',
       'Come to my LAB, south of the square. I have three young CHIMERA that need partners!',
     ];
+  }
+  // The gate into THYELLA PASS: sealed until every badge is earned.
+  if (mapId === 'route4' && y <= 1 && x === 8) {
+    if (badgeCount(g) < REQUIRED_BADGES.length) {
+      return [
+        'GATEKEEPER: THYELLA PASS is sacred ground.',
+        `You hold ${badgeCount(g)} of ${REQUIRED_BADGES.length} GYM BADGES. Come back when your set is complete.`,
+      ];
+    }
   }
   return null;
 }
@@ -97,6 +210,99 @@ export function handleEvent(g: GameContext, id: string): void {
   }
   if (id === 'pc_access') {
     g.scenes.push(new PcScene());
+    return;
+  }
+  if (id === 'thyella_gate') {
+    const badges = badgeCount(g);
+    if (badges >= REQUIRED_BADGES.length) {
+      g.scenes.push(
+        new DialogScene([
+          'GATEKEEPER: Three badges! The Pass recognizes a true challenger.',
+          'GATEKEEPER: Step through. May the storm favor you.',
+        ]),
+      );
+    } else {
+      g.scenes.push(
+        new DialogScene([
+          `GATEKEEPER: THYELLA PASS is sacred ground.`,
+          `You carry ${badges} of ${REQUIRED_BADGES.length} GYM BADGES. Return when you hold them all.`,
+        ]),
+      );
+    }
+    return;
+  }
+  if (id === 'item_pass_primecapsule') {
+    if (g.state.flags.took_pass_primecapsule) {
+      g.scenes.push(new DialogScene(['There is nothing left here.']));
+      return;
+    }
+    g.state.flags.took_pass_primecapsule = true;
+    addItem(g.state, 'prime_capsule', 1);
+    g.scenes.push(new DialogScene([`${g.state.playerName} found a PRIME CAPSULE!`]));
+    return;
+  }
+  if (id === 'legendary_keravnos') {
+    if (g.state.caughtDex.keravnos) {
+      g.scenes.push(new DialogScene(['The perch is empty. The storm has moved on.']));
+      return;
+    }
+    if (g.state.flags.met_keravnos) {
+      g.scenes.push(
+        new DialogScene(['A charge still crackles here...', 'KERAVNOS circles back!'], () => {
+          g.scenes.push(new BattleScene('keravnos', 50));
+        }),
+      );
+      return;
+    }
+    g.scenes.push(
+      new DialogScene(
+        [
+          'The air screams. Feathers of lightning unfurl from the perch.',
+          'The legendary KERAVNOS bars your path!',
+        ],
+        () => {
+          g.state.flags.met_keravnos = true;
+          g.scenes.push(new BattleScene('keravnos', 50));
+        },
+      ),
+    );
+    return;
+  }
+  if (id === 'elite_four') {
+    if (g.state.flags.champion) {
+      g.scenes.push(
+        new DialogScene([
+          'The HALL OF FAME hums softly.',
+          'CHAMPION, would you defend your title again?',
+        ], () => {
+          g.scenes.push(
+            new ChoiceScene(['YES', 'NO'], (i) => {
+              if (i === 0) runEliteChain(g, 0);
+            }),
+          );
+        }),
+      );
+      return;
+    }
+    if (badgeCount(g) < REQUIRED_BADGES.length) {
+      g.scenes.push(new DialogScene(['GUARD: Only trainers with every GYM BADGE may challenge the ELITE FOUR.']));
+      return;
+    }
+    g.scenes.push(
+      new DialogScene(
+        [
+          'GUARD: Beyond me stand the ELITE FOUR, and then the CHAMPION.',
+          'GUARD: There is no healing between them. Are you ready?',
+        ],
+        () => {
+          g.scenes.push(
+            new ChoiceScene(['YES', 'NO'], (i) => {
+              if (i === 0) runEliteChain(g, 0);
+            }),
+          );
+        },
+      ),
+    );
     return;
   }
   if (id === 'shop_kyma') {

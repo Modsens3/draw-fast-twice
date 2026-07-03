@@ -14,6 +14,36 @@ export interface EncounterTable {
 export const SLOT_WEIGHTS = [51, 51, 39, 25, 25, 25, 13, 10, 10, 7];
 
 export const ENCOUNTERS: Record<string, EncounterTable> = {
+  route4: {
+    rate: 25,
+    slots: [
+      { speciesId: 'sparhawk', level: 26 },
+      { speciesId: 'thistrella', level: 26 },
+      { speciesId: 'vipryss', level: 27 },
+      { speciesId: 'sparhawk', level: 28 },
+      { speciesId: 'fawnix', level: 27 },
+      { speciesId: 'thistrella', level: 28 },
+      { speciesId: 'myserker', level: 28 },
+      { speciesId: 'vipryss', level: 29 },
+      { speciesId: 'fawnix', level: 30 },
+      { speciesId: 'drakelet', level: 30 },
+    ],
+  },
+  thyella_pass: {
+    rate: 20,
+    slots: [
+      { speciesId: 'crystrag', level: 32 },
+      { speciesId: 'vesperyx', level: 32 },
+      { speciesId: 'petrock', level: 33 },
+      { speciesId: 'gloomurn', level: 33 },
+      { speciesId: 'crystrag', level: 34 },
+      { speciesId: 'vesperyx', level: 34 },
+      { speciesId: 'rimehorn', level: 35 },
+      { speciesId: 'gloomurn', level: 35 },
+      { speciesId: 'drakelet', level: 36 },
+      { speciesId: 'drakainos', level: 40 },
+    ],
+  },
   route2: {
     rate: 25,
     slots: [

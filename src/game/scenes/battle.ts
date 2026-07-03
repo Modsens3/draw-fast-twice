@@ -78,6 +78,7 @@ export class BattleScene implements Scene {
   private participantIndex = 0;
   private trainer: TrainerConfig | null = null;
   private trainerIndex = 0;
+  private afterPop?: () => void;
 
   constructor(wildSpeciesId: string, wildLevel: number, trainer?: TrainerConfig) {
     if (trainer) {
@@ -502,7 +503,9 @@ export class BattleScene implements Scene {
         out.push({
           run: () => {
             this.g.state.money += this.trainer!.prize;
-            this.trainer!.onWin?.();
+            // Defer onWin until after this scene pops, so a chained battle
+            // (Elite Four) is pushed onto the overworld, not stacked on us.
+            this.afterPop = this.trainer!.onWin;
             this.finish('won');
           },
         });
@@ -826,6 +829,13 @@ export class BattleScene implements Scene {
     }
     if (step.end) {
       g.scenes.pop();
+      // Fire any deferred continuation (e.g. next Elite Four battle) now that
+      // this battle is off the stack.
+      if (this.afterPop) {
+        const cb = this.afterPop;
+        this.afterPop = undefined;
+        cb();
+      }
       if (step.end === 'lost') {
         // Blackout: heal up and return home, Gen 1 style (half money lost).
         for (const m of g.state.party) {

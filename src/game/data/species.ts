@@ -242,12 +242,14 @@ const LIST: SpeciesDef[] = [
   S({
     id: 'frostkid', dexNo: 28, name: 'FROSTKID', category: 'RIMEGOAT', types: ['ICE'],
     base: [50, 55, 60, 55, 65], catchRate: 150, baseExp: 98, growth: 'medium_fast',
+    evolution: { level: 32, into: 'rimehorn' },
     learnset: [[1, 'ram'], [1, 'frostbite'], [13, 'ironhide'], [22, 'mistveil'], [34, 'glacierram']],
     dexEntry: 'A goat kid rimed with frost. It grazes where morning ice lingers.',
   }),
   S({
     id: 'drakelet', dexNo: 29, name: 'DRAKELET', category: 'CAPEWYRM', types: ['DRAGON'],
     base: [41, 64, 45, 50, 50], catchRate: 45, baseExp: 67, growth: 'slow',
+    evolution: { level: 40, into: 'drakainos' },
     learnset: [[1, 'wyrmgale'], [1, 'glare'], [10, 'quickdart'], [20, 'slashfang'], [35, 'surgewave']],
     dexEntry: 'Sailors swear the far cape hides these. Few have proof.',
   }),
@@ -329,6 +331,24 @@ const LIST: SpeciesDef[] = [
     base: [95, 125, 79, 81, 60], catchRate: 45, baseExp: 214, growth: 'slow',
     learnset: [[20, 'gnaw'], [25, 'wyrmgale'], [32, 'slashfang'], [41, 'surgewave'], [50, 'pyreburst']],
     dexEntry: 'The meek puddlefish reborn as a storm. Harbors empty when it sings.',
+  }),
+  S({
+    id: 'rimehorn', dexNo: 42, name: 'RIMEHORN', category: 'GLACIERGOAT', types: ['ICE'],
+    base: [70, 80, 85, 70, 90], catchRate: 60, baseExp: 165, growth: 'medium_fast',
+    learnset: [[1, 'frostbite'], [1, 'ironhide'], [22, 'mistveil'], [36, 'glacierram'], [46, 'crushblow']],
+    dexEntry: 'Its horns are ancient ice that never melts. Winter follows its herd.',
+  }),
+  S({
+    id: 'drakainos', dexNo: 43, name: 'DRAKAINOS', category: 'CAPEDRAKE', types: ['DRAGON', 'FLYING'],
+    base: [78, 104, 75, 90, 90], catchRate: 25, baseExp: 200, growth: 'slow',
+    learnset: [[1, 'wyrmgale'], [1, 'slashfang'], [40, 'galewing'], [48, 'surgewave'], [55, 'pyreburst']],
+    dexEntry: 'The proof the sailors lacked. It naps coiled around lighthouse tops.',
+  }),
+  S({
+    id: 'keravnos', dexNo: 44, name: 'KERAVNOS', category: 'STORMBIRD', types: ['ELECTRIC', 'FLYING'],
+    base: [90, 90, 85, 100, 125], catchRate: 45, baseExp: 216, growth: 'slow',
+    learnset: [[1, 'voltlance'], [1, 'galewing'], [1, 'staticweb'], [55, 'mirrordance'], [60, 'pyreburst']],
+    dexEntry: 'The caged storm of the far cape. Old tales end where its cry begins.',
   }),
 ];
 
