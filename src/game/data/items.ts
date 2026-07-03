@@ -4,7 +4,8 @@ export type ItemEffect =
   | { kind: 'ball'; ballMod: number; ballDiv: number }
   | { kind: 'heal'; amount: number }
   | { kind: 'cure'; status: 'PSN' | 'BRN' | 'PAR' | 'SLP' | 'FRZ' | 'ALL' }
-  | { kind: 'revive'; halfHp: boolean };
+  | { kind: 'revive'; halfHp: boolean }
+  | { kind: 'rod'; minLevel: number; maxLevel: number; speciesPool: string[] };
 
 export interface ItemDef {
   id: string;
@@ -32,6 +33,7 @@ export const ITEMS: Record<string, ItemDef> = Object.fromEntries(
     I('thawsalve', 'THAWSALVE', 250, { kind: 'cure', status: 'FRZ' }),
     I('nervesalt', 'NERVESALT', 200, { kind: 'cure', status: 'PAR' }),
     I('burnbalm', 'BURNBALM', 250, { kind: 'cure', status: 'BRN' }),
+    I('old_rod', 'OLD ROD', 0, { kind: 'rod', minLevel: 5, maxLevel: 10, speciesPool: ['minnowle'] }),
   ].map((i) => [i.id, i]),
 );
 

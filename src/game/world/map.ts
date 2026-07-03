@@ -77,13 +77,16 @@ export class GameMap {
     this.def = def;
     this.height = def.rows.length;
     this.width = def.rows[0].length;
-    this.grid = def.rows.map((row) =>
-      [...row].map((ch) => {
+    this.grid = def.rows.map((row, y) => {
+      if (row.length !== this.width) {
+        throw new Error(`Map ${def.id}: row ${y} is ${row.length} wide, expected ${this.width}`);
+      }
+      return [...row].map((ch) => {
         const id = def.legend[ch];
         if (!id) throw new Error(`Map ${def.id}: unknown legend char '${ch}'`);
         return id;
-      }),
-    );
+      });
+    });
   }
 
   tileAt(x: number, y: number): TileId {

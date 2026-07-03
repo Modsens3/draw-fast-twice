@@ -122,6 +122,8 @@ export interface GameState {
   seenDex: Record<string, boolean>;
   caughtDex: Record<string, boolean>;
   flags: Record<string, boolean>;
+  steps: number;
+  daycare: { mon: Monster; steps: number } | null;
   // Overworld position, kept here so scenes can be rebuilt freely.
   mapId: string;
   x: number;
@@ -153,6 +155,8 @@ export function newGameState(): GameState {
     seenDex: {},
     caughtDex: {},
     flags: {},
+    steps: 0,
+    daycare: null,
     mapId: 'player_house',
     x: 4,
     y: 4,

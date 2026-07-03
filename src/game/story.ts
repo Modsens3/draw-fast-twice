@@ -4,10 +4,33 @@
 import type { GameContext } from './engine/scene';
 import { DialogScene } from './scenes/dialog';
 import { ChoiceScene } from './scenes/choice';
-import { addItem, makeMonster } from './state';
+import { addItem, expForLevel, makeMonster, Monster, refreshStats } from './state';
 import { species } from './data/species';
+import { move } from './data/moves';
 import { PcScene } from './scenes/pcbox';
 import { ShopScene } from './scenes/shop';
+import { TeamScene } from './scenes/menus';
+
+// Day-care growth: silent level-ups, auto-learning moves by overwriting the
+// oldest slot, no evolutions — matching the original day-care behavior.
+function applyDaycareExp(mon: Monster, gained: number): void {
+  const def = species(mon.speciesId);
+  mon.exp += gained;
+  while (mon.level < 100 && mon.exp >= expForLevel(def.growth, mon.level + 1)) {
+    mon.level++;
+    refreshStats(mon);
+    for (const l of def.learnset.filter((l) => l.level === mon.level)) {
+      if (mon.moves.some((s) => s.id === l.move)) continue;
+      const m = move(l.move);
+      if (mon.moves.length < 4) {
+        mon.moves.push({ id: l.move, pp: m.pp, maxPp: m.pp });
+      } else {
+        mon.moves.shift();
+        mon.moves.push({ id: l.move, pp: m.pp, maxPp: m.pp });
+      }
+    }
+  }
+}
 
 // Returns dialog to show instead of allowing the player onto (x, y).
 export function blocksMove(g: GameContext, mapId: string, x: number, y: number): string[] | null {
@@ -96,6 +119,16 @@ export function handleEvent(g: GameContext, id: string): void {
     g.scenes.push(new DialogScene([`${g.state.playerName} found a TONIC!`]));
     return;
   }
+  if (id === 'item_tower_supertonic') {
+    if (g.state.flags.took_tower_supertonic) {
+      g.scenes.push(new DialogScene(['There is nothing left here.']));
+      return;
+    }
+    g.state.flags.took_tower_supertonic = true;
+    addItem(g.state, 'super_tonic', 1);
+    g.scenes.push(new DialogScene([`${g.state.playerName} found a SUPER TONIC!`]));
+    return;
+  }
   if (id === 'item_cave_nervesalt') {
     if (g.state.flags.took_cave_nervesalt) {
       g.scenes.push(new DialogScene(['There is nothing left here.']));
@@ -104,6 +137,117 @@ export function handleEvent(g: GameContext, id: string): void {
     g.state.flags.took_cave_nervesalt = true;
     addItem(g.state, 'nervesalt', 1);
     g.scenes.push(new DialogScene([`${g.state.playerName} found a NERVESALT!`]));
+    return;
+  }
+  if (id === 'give_old_rod') {
+    if (!g.state.flags.got_old_rod) {
+      g.state.flags.got_old_rod = true;
+      addItem(g.state, 'old_rod', 1);
+      g.scenes.push(
+        new DialogScene([
+          'FISHER: You again! A promise is a promise.',
+          `${g.state.playerName} received the OLD ROD!`,
+          'FISHER: Face the water, cast from your BAG, and mind the flopping.',
+        ]),
+      );
+    } else {
+      g.scenes.push(new DialogScene(['FISHER: Biting today, are they?']));
+    }
+    return;
+  }
+  if (id === 'daycare') {
+    if (!g.state.daycare) {
+      if (g.state.party.length <= 1) {
+        g.scenes.push(new DialogScene(['GRANNY: I would watch one for you, but you need a partner by your side too!']));
+        return;
+      }
+      g.scenes.push(
+        new DialogScene(['GRANNY: I can raise one of your CHIMERA. Every step you take, it grows.', 'Leave one with me?'], () => {
+          g.scenes.push(
+            new ChoiceScene(['YES', 'NO'], (i) => {
+              if (i !== 0) return;
+              g.scenes.push(
+                new TeamScene((pick) => {
+                  const mon = g.state.party[pick];
+                  if (!mon || g.state.party.length <= 1) return;
+                  g.state.party.splice(pick, 1);
+                  g.state.daycare = { mon, steps: g.state.steps };
+                  g.scenes.push(new DialogScene([`GRANNY: I will take good care of ${species(mon.speciesId).name}!`]));
+                }),
+              );
+            }),
+          );
+        }),
+      );
+      return;
+    }
+    // Withdraw: exp equal to steps walked, $100 flat, Gen 1 style.
+    const { mon, steps } = g.state.daycare;
+    const gained = Math.max(1, g.state.steps - steps);
+    const fee = 100;
+    if (g.state.money < fee) {
+      g.scenes.push(new DialogScene(['GRANNY: The fee is $100, dearie. Come back when you have it.']));
+      return;
+    }
+    if (g.state.party.length >= 6) {
+      g.scenes.push(new DialogScene(['GRANNY: Your team is full! Make room first.']));
+      return;
+    }
+    g.scenes.push(
+      new DialogScene(
+        [`GRANNY: ${species(mon.speciesId).name} walked ${gained} steps worth of growth!`, 'Take it back for $100?'],
+        () => {
+          g.scenes.push(
+            new ChoiceScene(['YES', 'NO'], (i) => {
+              if (i !== 0) return;
+              g.state.money -= fee;
+              applyDaycareExp(mon, gained);
+              g.state.party.push(mon);
+              g.state.daycare = null;
+              g.scenes.push(new DialogScene([`${species(mon.speciesId).name} came back happy! (Lv${mon.level})`]));
+            }),
+          );
+        },
+      ),
+    );
+    return;
+  }
+  if (id === 'trade_frostkid') {
+    if (g.state.flags.traded_frostkid) {
+      g.scenes.push(new DialogScene(['COLLECTOR: My MYSLING and I are inseparable now. Thanks again!']));
+      return;
+    }
+    const idx = g.state.party.findIndex((m) => m.speciesId === 'mysling');
+    if (idx < 0) {
+      g.scenes.push(
+        new DialogScene([
+          'COLLECTOR: I would trade my FROSTKID for a MYSLING in a heartbeat.',
+          'Bring one and we have a deal!',
+        ]),
+      );
+      return;
+    }
+    g.scenes.push(
+      new DialogScene(['COLLECTOR: A MYSLING! Trade it for my FROSTKID?'], () => {
+        g.scenes.push(
+          new ChoiceScene(['YES', 'NO'], (i) => {
+            if (i !== 0) return;
+            const given = g.state.party[idx];
+            const received = makeMonster('frostkid', given.level);
+            g.state.party[idx] = received;
+            g.state.flags.traded_frostkid = true;
+            g.state.seenDex.frostkid = true;
+            g.state.caughtDex.frostkid = true;
+            g.scenes.push(
+              new DialogScene([
+                `${g.state.playerName} traded MYSLING for FROSTKID!`,
+                'COLLECTOR: Treat the little rime-goat well!',
+              ]),
+            );
+          }),
+        );
+      }),
+    );
     return;
   }
   if (id === 'eris_thanks') {

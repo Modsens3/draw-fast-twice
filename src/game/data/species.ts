@@ -317,6 +317,19 @@ const LIST: SpeciesDef[] = [
     learnset: [[1, 'vinelash'], [1, 'needlejab'], [18, 'sporeburst'], [28, 'sapdrain'], [38, 'petalgale']],
     dexEntry: 'Its bramble skirt snags whole hedgerows. Farmers both curse and thank it.',
   }),
+  S({
+    id: 'minnowle', dexNo: 40, name: 'MINNOWLE', category: 'PUDDLEFISH', types: ['WATER'],
+    base: [20, 10, 55, 80, 20], catchRate: 255, baseExp: 20, growth: 'slow',
+    evolution: { level: 20, into: 'leviathra' },
+    learnset: [[1, 'quickdart'], [15, 'ram']],
+    dexEntry: 'It flops more than it swims. Somehow, it endures every net.',
+  }),
+  S({
+    id: 'leviathra', dexNo: 41, name: 'LEVIATHRA', category: 'SEAWRATH', types: ['WATER', 'DRAGON'],
+    base: [95, 125, 79, 81, 60], catchRate: 45, baseExp: 214, growth: 'slow',
+    learnset: [[20, 'gnaw'], [25, 'wyrmgale'], [32, 'slashfang'], [41, 'surgewave'], [50, 'pyreburst']],
+    dexEntry: 'The meek puddlefish reborn as a storm. Harbors empty when it sings.',
+  }),
 ];
 
 export const SPECIES: Record<string, SpeciesDef> = Object.fromEntries(LIST.map((s) => [s.id, s]));

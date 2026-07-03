@@ -249,6 +249,7 @@ export class OverworldScene implements Scene {
 
   private finishPlayerStep(g: GameContext): void {
     this.syncState();
+    g.state.steps++;
     if (this.checkTrainerSight(g)) return;
     const b = this.effBehavior(this.player.x, this.player.y);
     if (b === 'door' || b === 'mat') {
@@ -404,7 +405,10 @@ export class OverworldScene implements Scene {
           g.scenes.push(new DialogScene(blocked));
           return;
         }
-        if (this.tryStartMove(this.player, dir, false)) this.syncState();
+        // tryStartMove sets facing even when the step is blocked; sync either way
+        // so field actions (fishing, cut) read the true facing direction.
+        this.tryStartMove(this.player, dir, false);
+        this.syncState();
       }
     }
 

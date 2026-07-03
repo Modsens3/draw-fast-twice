@@ -9,7 +9,9 @@ import { move } from '../data/moves';
 import { expForLevel, Monster } from '../state';
 import { frontSprite } from '../world/monsterSprites';
 import { saveGame } from '../save';
+import { getMap } from '../data/maps';
 import { DialogScene } from './dialog';
+import { BattleScene } from './battle';
 
 function listNav(g: GameContext, index: number, count: number): number {
   if (count === 0) return 0;
@@ -171,6 +173,26 @@ export class BagScene implements Scene {
     const def = item(id);
     if (def.effect.kind === 'ball') {
       g.scenes.push(new DialogScene(["Save those for wild CHIMERA! Nothing to catch here."]));
+      return;
+    }
+    if (def.effect.kind === 'rod') {
+      const effect = def.effect;
+      const [dx, dy] = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[g.state.dir];
+      const facing = getMap(g.state.mapId).behaviorAt(g.state.x + dx, g.state.y + dy);
+      if (facing !== 'water') {
+        g.scenes.push(new DialogScene(['No good fishing spot here.']));
+        return;
+      }
+      const pool = effect.speciesPool;
+      const speciesId = pool[Math.floor(Math.random() * pool.length)];
+      const level = effect.minLevel + Math.floor(Math.random() * (effect.maxLevel - effect.minLevel + 1));
+      g.scenes.pop(); // close the bag
+      g.scenes.pop(); // close the start menu
+      g.scenes.push(
+        new DialogScene([`${g.state.playerName} cast the ${def.name}...`, 'Oh! A bite!'], () => {
+          g.scenes.push(new BattleScene(speciesId, level));
+        }),
+      );
       return;
     }
     if (def.effect.kind === 'heal' || def.effect.kind === 'cure') {
