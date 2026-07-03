@@ -325,6 +325,7 @@ export class BattleScene implements Scene {
     }
 
     defender.mon.hp = Math.max(0, defender.mon.hp - totalDamage);
+    pre.push({ run: () => this._g?.audio.sfx(lastEff > 10 ? 'super' : 'hit') });
     if (anyCrit) pre.push({ text: 'A critical hit!' });
     if (hits > 1) pre.push({ text: `Hit ${hits} time(s)!` });
     if (lastEff > 10) pre.push({ text: "It's super effective!" });
@@ -476,7 +477,7 @@ export class BattleScene implements Scene {
 
   private checkFaint(c: Combatant): void {
     if (c.mon.hp > 0) return;
-    const out: Step[] = [{ text: `${this.name(c)} fainted!` }];
+    const out: Step[] = [{ run: () => this._g?.audio.sfx('faint') }, { text: `${this.name(c)} fainted!` }];
     if (c === this.enemy) {
       // Clear remaining queued actions for this round.
       this.steps = [];
@@ -497,6 +498,7 @@ export class BattleScene implements Scene {
           },
         });
       } else if (this.trainer) {
+        out.push({ run: () => this._g?.audio.playTrack('victory') });
         out.push({ text: `${this.g.state.playerName} defeated ${this.trainer.name}!` });
         for (const line of this.trainer.winText) out.push({ text: line });
         out.push({ text: `Got $${this.trainer.prize} for winning!` });
@@ -539,6 +541,7 @@ export class BattleScene implements Scene {
     while (mon.level < 100 && mon.exp >= expForLevel(def.growth, mon.level + 1)) {
       mon.level++;
       refreshStats(mon);
+      out.push({ run: () => this._g?.audio.sfx('levelup') });
       out.push({ text: `${def.name} grew to level ${mon.level}!` });
       const learned = def.learnset.filter((l) => l.level === mon.level);
       for (const l of learned) {
@@ -606,9 +609,11 @@ export class BattleScene implements Scene {
     addItem(g.state, itemId, -1);
     if (def.effect.kind === 'ball') {
       this.say(`${g.state.playerName} threw a ${def.name}!`);
+      this.steps.push({ run: () => this._g?.audio.sfx('ball') });
       const { caught, wobbles } = rollCatch(this.enemy.mon, def.effect.ballMod, def.effect.ballDiv);
       if (caught) {
         this.say(`Gotcha! ${species(this.enemy.mon.speciesId).name} was caught!`);
+        this.steps.push({ run: () => this._g?.audio.playTrack('victory') });
         this.steps.push({
           run: () => {
             g.state.caughtDex[this.enemy.mon.speciesId] = true;
@@ -660,6 +665,7 @@ export class BattleScene implements Scene {
   update(g: GameContext): void {
     this._g = g;
     this.tick++;
+    if (this.tick === 1) g.audio.playTrack('battle');
 
     if (this.phase === 'anim') {
       if (!this.player) {

@@ -15,6 +15,7 @@ export class HallOfFameScene implements Scene {
 
   update(g: GameContext): void {
     this.tick++;
+    if (this.tick === 1) g.audio.playTrack('victory');
     if (!this.saved && this.tick > 4) {
       this.saved = true;
       saveGame(g.state);

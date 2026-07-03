@@ -15,8 +15,14 @@ export class TitleScene implements Scene {
 
   update(g: GameContext): void {
     this.tick++;
+    // Retry every frame so the theme starts as soon as audio is armed (first keypress).
+    g.audio.playTrack('title');
+    if (g.input.wasPressed('SELECT')) {
+      g.audio.toggleMute();
+    }
     if (!this.menu) {
       if (g.input.wasPressed('START') || g.input.wasPressed('A')) {
+        g.audio.sfx('confirm');
         if (hasSave()) {
           this.menu = true;
         } else {
@@ -26,8 +32,12 @@ export class TitleScene implements Scene {
       }
       return;
     }
-    if (g.input.wasPressed('UP') || g.input.wasPressed('DOWN')) this.index ^= 1;
+    if (g.input.wasPressed('UP') || g.input.wasPressed('DOWN')) {
+      this.index ^= 1;
+      g.audio.sfx('cursor');
+    }
     if (g.input.wasPressed('A') || g.input.wasPressed('START')) {
+      g.audio.sfx('confirm');
       if (this.index === 0) {
         const loaded = loadGame();
         if (loaded) {
@@ -47,6 +57,14 @@ export class TitleScene implements Scene {
 
   draw(g: GameContext, s: Screen): void {
     s.clear(0);
+    // GB-style boot wipe: the logo slides down into place over the first ~28 ticks.
+    if (this.tick < 28) {
+      const drop = Math.floor((1 - this.tick / 28) * 40);
+      s.rect(0, 0, SCREEN_W, 8, 3);
+      this.centered(s, 'CHIMERA', 40 - drop);
+      this.centered(s, 'RED', 52 - drop);
+      return;
+    }
     s.rect(0, 0, SCREEN_W, 8, 3);
     s.rect(0, SCREEN_H - 8, SCREEN_W, 8, 3);
     this.centered(s, 'CHIMERA', 40);
@@ -62,5 +80,6 @@ export class TitleScene implements Scene {
       });
     }
     this.centered(s, 'A GEN 1 STYLE ADVENTURE', 120, 2);
+    if (g.audio.isMuted) this.centered(s, 'SOUND OFF (SELECT)', 132, 2);
   }
 }

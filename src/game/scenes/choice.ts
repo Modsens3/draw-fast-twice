@@ -24,12 +24,16 @@ export class ChoiceScene implements Scene {
   update(g: GameContext): void {
     if (g.input.wasPressed('UP')) {
       this.index = (this.index + this.options.length - 1) % this.options.length;
+      g.audio.sfx('cursor');
     } else if (g.input.wasPressed('DOWN')) {
       this.index = (this.index + 1) % this.options.length;
+      g.audio.sfx('cursor');
     } else if (g.input.wasPressed('A')) {
+      g.audio.sfx('confirm');
       g.scenes.pop();
       this.onChoose(this.index);
     } else if (g.input.wasPressed('B')) {
+      g.audio.sfx('cancel');
       g.scenes.pop();
       this.onChoose(-1);
     }

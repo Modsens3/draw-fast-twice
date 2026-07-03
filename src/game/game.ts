@@ -1,6 +1,7 @@
 import { Input } from './engine/input';
 import { Screen } from './engine/screen';
 import { GameContext, SceneStack } from './engine/scene';
+import { ChiptuneAudio } from './engine/audio';
 import { GameState, newGameState } from './state';
 import { TitleScene } from './scenes/title';
 
@@ -10,11 +11,13 @@ export class Game implements GameContext {
   readonly screen = new Screen();
   readonly input = new Input();
   readonly scenes = new SceneStack();
+  readonly audio = new ChiptuneAudio();
   state: GameState = newGameState();
 
   private raf = 0;
   private last = 0;
   private acc = 0;
+  private audioArmed = false;
   private detachInput?: () => void;
 
   start(container: HTMLElement): void {
@@ -23,6 +26,14 @@ export class Game implements GameContext {
     // Exposed for automated tests and debugging.
     (window as unknown as { __CHIMERA: Game }).__CHIMERA = this;
     this.detachInput = this.input.attach(window);
+    // Browsers require a user gesture before audio can start.
+    const arm = () => {
+      if (this.audioArmed) return;
+      this.audioArmed = true;
+      this.audio.resume();
+    };
+    window.addEventListener('keydown', arm);
+    window.addEventListener('pointerdown', arm);
     this.scenes.push(new TitleScene());
     this.last = performance.now();
     const frame = (now: number) => {

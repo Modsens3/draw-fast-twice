@@ -1,12 +1,14 @@
 import type { Screen } from './screen';
 import type { Input } from './input';
 import type { GameState } from '../state';
+import type { ChiptuneAudio } from './audio';
 
 export interface GameContext {
   screen: Screen;
   input: Input;
   scenes: SceneStack;
   state: GameState;
+  audio: ChiptuneAudio;
 }
 
 export interface Scene {

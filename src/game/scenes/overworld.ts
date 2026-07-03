@@ -368,6 +368,9 @@ export class OverworldScene implements Scene {
 
   update(g: GameContext): void {
     if (this.warping) return;
+    // Overworld theme resumes whenever this scene is on top (after battles/menus).
+    g.audio.playTrack('overworld');
+    if (g.input.wasPressed('SELECT')) g.audio.toggleMute();
     this.handlePostBattle(g);
     if (g.scenes.top !== this) return;
 
