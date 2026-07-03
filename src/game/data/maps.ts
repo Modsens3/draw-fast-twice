@@ -14,6 +14,8 @@ const OUTDOOR_LEGEND: Record<string, TileId> = {
   d: 'door',
   o: 'window',
   L: 'ledge',
+  C: 'shrub',
+  B: 'ball',
 };
 
 const INDOOR_LEGEND: Record<string, TileId> = {
@@ -236,6 +238,7 @@ const KYMA_TOWN: MapDef = {
     { x: 7, y: 10, toMap: 'kyma_house2', toX: 5, toY: 6, toDir: 'up' },
     { x: 5, y: 14, toMap: 'kyma_mart', toX: 5, toY: 6, toDir: 'up' },
     { x: 13, y: 14, toMap: 'kyma_center', toX: 5, toY: 6, toDir: 'up' },
+    { x: 14, y: 4, toMap: 'kyma_gym', toX: 5, toY: 8, toDir: 'up' },
   ],
   signs: [
     { x: 2, y: 6, text: ['KYMA TOWN', 'The waves carry every story here.'] },
@@ -346,6 +349,78 @@ const KYMA_HOUSE2: MapDef = {
   ],
 };
 
+const KYMA_GYM: MapDef = {
+  id: 'kyma_gym',
+  name: 'KYMA GYM',
+  outdoor: false,
+  border: 'iwall',
+  legend: INDOOR_LEGEND,
+  rows: [
+    'IIIIIIIIIIII',
+    'IffffffffffI',
+    'IffffffffffI',
+    'IfttffffttfI',
+    'IffffffffffI',
+    'IffffffffffI',
+    'IffffffffffI',
+    'IfttffffttfI',
+    'IffffmmffffI',
+    'IIIIIIIIIIII',
+  ],
+  warps: [
+    { x: 5, y: 8, toMap: 'kyma_town', toX: 14, toY: 5, toDir: 'down' },
+    { x: 6, y: 8, toMap: 'kyma_town', toX: 14, toY: 5, toDir: 'down' },
+  ],
+  signs: [],
+  npcs: [
+    {
+      id: 'gym1_leader_petros',
+      x: 5,
+      y: 2,
+      sprite: 'professor',
+      dir: 'down',
+      movement: 'static',
+      dialog: [],
+      trainer: {
+        name: 'LEADER PETROS',
+        party: [['petraw', 12], ['petrock', 14]],
+        prize: 1400,
+        sightRange: 2,
+        smart: true,
+        beforeText: [
+          'PETROS: I am PETROS. My resolve is bedrock, my team is the cliff itself.',
+          'Show me a will hard enough to split stone!',
+        ],
+        winText: [
+          'Hah! The cliff crumbles...',
+          'Take the CLIFF BADGE. Your ATTACK will strike truer for it.',
+          'It also lets seasoned CHIMERA trim shrubs with LEAFCUT in the field.',
+        ],
+        afterText: ['PETROS: Stone remembers every victory. So will I.'],
+        badge: 'badge_cliff',
+      },
+    },
+    {
+      id: 'gym1_pupil_rhea',
+      x: 3,
+      y: 6,
+      sprite: 'villager',
+      dir: 'right',
+      movement: 'static',
+      dialog: [],
+      trainer: {
+        name: 'PUPIL RHEA',
+        party: [['petraw', 10]],
+        prize: 200,
+        sightRange: 3,
+        beforeText: ['RHEA: Only the steady of heart may face PETROS. Steady like me!'],
+        winText: ['Oof! Solid technique...'],
+        afterText: ['RHEA: PETROS waits at the back. May your footing hold!'],
+      },
+    },
+  ],
+};
+
 const KYMA_CENTER: MapDef = {
   id: 'kyma_center',
   name: 'CHIMERA CENTER',
@@ -445,9 +520,9 @@ const ROUTE1: MapDef = {
     'T..................T',
     'T....,.............T',
     'T..................T',
-    'T..................T',
-    'T........,.........T',
-    'T..................T',
+    'T...............TCTT',
+    'T...............TBTT',
+    'T...............TTTT',
     'T..................T',
     'T..................T',
     'TTTTTTTT..TTTTTTTTTT',
@@ -456,6 +531,7 @@ const ROUTE1: MapDef = {
   signs: [
     { x: 14, y: 3, text: ['ROUTE 1', 'MYRTOS TOWN -', 'KYMA TOWN'] },
   ],
+  events: [{ x: 17, y: 22, id: 'item_route1_supertonic' }],
   npcs: [
     {
       id: 'route1_hiker',
@@ -467,6 +543,42 @@ const ROUTE1: MapDef = {
       dialog: [
         "Watch out for ledges! You can hop down them, but there's no way back up.",
       ],
+    },
+    {
+      id: 'route1_scout_nikos',
+      x: 12,
+      y: 20,
+      sprite: 'rival',
+      dir: 'left',
+      movement: 'static',
+      dialog: [],
+      trainer: {
+        name: 'SCOUT NIKOS',
+        party: [['mysling', 4], ['sparvos', 5]],
+        prize: 100,
+        sightRange: 4,
+        beforeText: ['NIKOS: Hey! Trainers lock eyes, trainers battle. Rules are rules!'],
+        winText: ['Whoa! You fight like a gale!'],
+        afterText: ['NIKOS: Keep heading north. KYMA TOWN has a GYM, you know.'],
+      },
+    },
+    {
+      id: 'route1_scout_elena',
+      x: 4,
+      y: 22,
+      sprite: 'villager',
+      dir: 'right',
+      movement: 'static',
+      dialog: [],
+      trainer: {
+        name: 'SCOUT ELENA',
+        party: [['vipion', 6]],
+        prize: 120,
+        sightRange: 3,
+        beforeText: ['ELENA: My VIPION smells a rookie... En garde!'],
+        winText: ['Hissss... beaten fair and square.'],
+        afterText: ['ELENA: Careful in tall grass. Poison lingers, you know.'],
+      },
     },
   ],
   connections: {
@@ -485,6 +597,7 @@ const DEFS = [
   KYMA_HOUSE2,
   KYMA_CENTER,
   KYMA_MART,
+  KYMA_GYM,
   ROUTE1,
 ];
 

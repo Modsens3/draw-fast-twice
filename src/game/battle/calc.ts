@@ -53,6 +53,17 @@ export interface DamageResult {
   effectiveness: number; // x10
 }
 
+// Gen 1 badge boosts: owning the right badge multiplies a stat by 9/8.
+export interface BadgeBoosts {
+  atk?: boolean;
+  def?: boolean;
+  spd?: boolean;
+  spc?: boolean;
+}
+
+const badgeBoost = (stat: number, boosted: boolean | undefined) =>
+  boosted ? Math.floor((stat * 9) / 8) : stat;
+
 export function computeDamage(
   attacker: Monster,
   defender: Monster,
@@ -60,6 +71,8 @@ export function computeDamage(
   attackerStages: StatStages,
   defenderStages: StatStages,
   critical: boolean,
+  attackerBadges?: BadgeBoosts,
+  defenderBadges?: BadgeBoosts,
 ): DamageResult {
   const atkSpecies = species(attacker.speciesId);
   const defSpecies = species(defender.speciesId);
@@ -72,9 +85,17 @@ export function computeDamage(
     defenseStat = critical ? defender.stats.def : applyStage(defender.stats.def, defenderStages.def);
     // Burn halves physical attack (unless crit, which ignores modifiers).
     if (attacker.status === 'BRN' && !critical) attackStat = Math.max(1, Math.floor(attackStat / 2));
+    if (!critical) {
+      attackStat = badgeBoost(attackStat, attackerBadges?.atk);
+      defenseStat = badgeBoost(defenseStat, defenderBadges?.def);
+    }
   } else {
     attackStat = critical ? attacker.stats.spc : applyStage(attacker.stats.spc, attackerStages.spc);
     defenseStat = critical ? defender.stats.spc : applyStage(defender.stats.spc, defenderStages.spc);
+    if (!critical) {
+      attackStat = badgeBoost(attackStat, attackerBadges?.spc);
+      defenseStat = badgeBoost(defenseStat, defenderBadges?.spc);
+    }
   }
 
   const level = critical ? attacker.level * 2 : attacker.level;

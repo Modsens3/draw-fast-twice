@@ -19,10 +19,15 @@ export function blocksMove(g: GameContext, mapId: string, x: number, y: number):
       'Come to my LAB, south of the square. I have three young CHIMERA that need partners!',
     ];
   }
-  if (mapId === 'kyma_town' && x === 13 && y === 4) {
-    return ['KYMA GYM', 'Closed. The LEADER is off training in the hills.'];
-  }
   return null;
+}
+
+// The rival's starter counters the player's pick.
+export function rivalStarterId(g: GameContext): string {
+  for (const key of Object.keys(g.state.flags)) {
+    if (key.startsWith('rival_has_')) return key.slice('rival_has_'.length);
+  }
+  return 'pyrling';
 }
 
 const STARTERS: Record<string, { speciesId: string; rivalPick: string; blurb: string }> = {
@@ -44,6 +49,16 @@ const STARTERS: Record<string, { speciesId: string; rivalPick: string; blurb: st
 };
 
 export function handleEvent(g: GameContext, id: string): void {
+  if (id === 'item_route1_supertonic') {
+    if (g.state.flags.took_route1_supertonic) {
+      g.scenes.push(new DialogScene(['There is nothing left here.']));
+      return;
+    }
+    g.state.flags.took_route1_supertonic = true;
+    addItem(g.state, 'super_tonic', 1);
+    g.scenes.push(new DialogScene([`${g.state.playerName} found a SUPER TONIC!`]));
+    return;
+  }
   if (id === 'nurse_heal') {
     g.scenes.push(
       new DialogScene(['NURSE: Welcome to the CHIMERA CENTER!', 'Let me patch up your team...'], () => {
@@ -81,6 +96,7 @@ export function handleEvent(g: GameContext, id: string): void {
             g.state.party.push(makeMonster(starter.speciesId, 5));
             flags.starter = true;
             flags[`rival_has_${starter.rivalPick}`] = true;
+            flags.rival_pending = true;
             g.state.seenDex[starter.speciesId] = true;
             g.state.caughtDex[starter.speciesId] = true;
             addItem(g.state, 'capsule', 5);

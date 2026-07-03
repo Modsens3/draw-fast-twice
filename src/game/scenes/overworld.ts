@@ -2,10 +2,11 @@ import type { GameContext, Scene } from '../engine/scene';
 import { Screen, SCREEN_H, SCREEN_W } from '../engine/screen';
 import { TILE, tileCanvas } from '../world/tiles';
 import { charSprites, Dir, DIR_DELTA, SpriteId } from '../world/sprites';
-import { GameMap, NpcDef } from '../world/map';
+import { GameMap, NpcDef, TrainerDef } from '../world/map';
+import { makeMonster } from '../state';
 import { getMap } from '../data/maps';
 import { rollEncounter } from '../data/encounters';
-import { blocksMove, handleEvent } from '../story';
+import { blocksMove, handleEvent, rivalStarterId } from '../story';
 import type { GameState } from '../state';
 import { DialogScene } from './dialog';
 import { BattleScene } from './battle';
@@ -75,6 +76,8 @@ export class OverworldScene implements Scene {
   private npcs: Npc[] = [];
   private warping = false;
   private state: GameState;
+  // Shrubs cut this visit; resets when the map is left, like the original.
+  private cleared = new Set<string>();
 
   constructor(state: GameState) {
     this.state = state;
@@ -91,7 +94,16 @@ export class OverworldScene implements Scene {
     this.state.dir = this.player.dir;
   }
 
+  private effTile(x: number, y: number) {
+    return this.cleared.has(`${x},${y}`) ? 'ground' : this.map.tileAt(x, y);
+  }
+
+  private effBehavior(x: number, y: number) {
+    return this.cleared.has(`${x},${y}`) ? 'walk' : this.map.behaviorAt(x, y);
+  }
+
   private loadNpcs(): void {
+    this.cleared.clear();
     this.npcs = this.map.def.npcs.map((def) => ({
       ...makeMover(def.x, def.y, def.dir, def.sprite),
       def,
@@ -111,7 +123,7 @@ export class OverworldScene implements Scene {
   }
 
   private passable(x: number, y: number, forNpc: boolean): boolean {
-    const b = this.map.behaviorAt(x, y);
+    const b = this.effBehavior(x, y);
     if (b === 'solid' || b === 'water' || b === 'ledge') return false;
     if (forNpc && (b === 'door' || b === 'mat' || b === 'grass')) return false;
     return true;
@@ -127,7 +139,7 @@ export class OverworldScene implements Scene {
       return this.tryCrossEdge(tx, ty, dir);
     }
 
-    const behavior = this.map.behaviorAt(tx, ty);
+    const behavior = this.effBehavior(tx, ty);
     // Ledges can only be hopped from above, landing one tile further.
     if (!forNpc && behavior === 'ledge' && dir === 'down') {
       const lx = tx;
@@ -195,9 +207,50 @@ export class OverworldScene implements Scene {
     return true;
   }
 
+  // Gen 1-style trainer line of sight: along the facing direction, unobstructed.
+  private checkTrainerSight(g: GameContext): boolean {
+    for (const npc of this.npcs) {
+      const t = npc.def.trainer;
+      if (!t || g.state.flags[`beat_${npc.def.id}`] || npc.moving) continue;
+      const [dx, dy] = DIR_DELTA[npc.dir];
+      for (let dist = 1; dist <= t.sightRange; dist++) {
+        const sx = npc.x + dx * dist;
+        const sy = npc.y + dy * dist;
+        if (this.player.x === sx && this.player.y === sy) {
+          this.startTrainerBattle(g, npc.def.id, t);
+          return true;
+        }
+        const b = this.effBehavior(sx, sy);
+        if (b === 'solid' || b === 'water' || this.npcs.some((o) => o !== npc && o.x === sx && o.y === sy)) break;
+      }
+    }
+    return false;
+  }
+
+  private startTrainerBattle(g: GameContext, npcId: string, t: TrainerDef): void {
+    g.scenes.push(
+      new DialogScene(t.beforeText, () => {
+        g.scenes.push(
+          BattleScene.forTrainer({
+            name: t.name,
+            party: t.party.map(([id, level]) => makeMonster(id, level)),
+            prize: t.prize,
+            smart: t.smart,
+            winText: t.winText,
+            onWin: () => {
+              g.state.flags[`beat_${npcId}`] = true;
+              if (t.badge) g.state.flags[t.badge] = true;
+            },
+          }),
+        );
+      }),
+    );
+  }
+
   private finishPlayerStep(g: GameContext): void {
     this.syncState();
-    const b = this.map.behaviorAt(this.player.x, this.player.y);
+    if (this.checkTrainerSight(g)) return;
+    const b = this.effBehavior(this.player.x, this.player.y);
     if (b === 'door' || b === 'mat') {
       const warp = this.map.warpAt(this.player.x, this.player.y);
       if (warp) {
@@ -224,6 +277,23 @@ export class OverworldScene implements Scene {
 
   // After battles: relocate on blackout, then run any pending evolutions.
   private handlePostBattle(g: GameContext): void {
+    if (g.state.flags.rival_pending && g.state.party.length > 0) {
+      delete g.state.flags.rival_pending;
+      const rivalMon = rivalStarterId(g);
+      this.startTrainerBattle(g, 'rival1', {
+        name: g.state.rivalName,
+        party: [[rivalMon, 5]],
+        prize: 175,
+        sightRange: 0,
+        beforeText: [
+          `${g.state.rivalName}: Hold it right there!`,
+          "Let's see what your new partner can do. Come on!",
+        ],
+        winText: ['What?! I picked the stronger one...', 'Whatever. Smell you later!'],
+        afterText: [],
+      });
+      return;
+    }
     if (g.state.flags.blackout) {
       g.state.flags.blackout = false;
       this.map = getMap(g.state.mapId);
@@ -257,6 +327,14 @@ export class OverworldScene implements Scene {
     const npc = this.npcs.find((n) => !n.moving && n.x === fx && n.y === fy);
     if (npc) {
       npc.dir = opposite(this.player.dir);
+      if (npc.def.trainer) {
+        if (g.state.flags[`beat_${npc.def.id}`]) {
+          g.scenes.push(new DialogScene(npc.def.trainer.afterText));
+        } else {
+          this.startTrainerBattle(g, npc.def.id, npc.def.trainer);
+        }
+        return;
+      }
       if (npc.def.event) handleEvent(g, npc.def.event);
       else g.scenes.push(new DialogScene(npc.def.dialog));
       return;
@@ -269,6 +347,21 @@ export class OverworldScene implements Scene {
     const event = this.map.eventAt(fx, fy);
     if (event) {
       handleEvent(g, event.id);
+      return;
+    }
+    if (this.effTile(fx, fy) === 'shrub') {
+      const cutter = g.state.party.find((m) => m.moves.some((s) => s.id === 'leafcut'));
+      if (!g.state.flags.badge_cliff) {
+        g.scenes.push(new DialogScene(['A stubby shrub blocks the way.', 'A GYM BADGE might prove you can handle field moves.']));
+      } else if (!cutter) {
+        g.scenes.push(new DialogScene(['A stubby shrub blocks the way.', 'A CHIMERA that knows LEAFCUT could trim it.']));
+      } else {
+        g.scenes.push(
+          new DialogScene([`${species(cutter.speciesId).name} used LEAFCUT!`, 'The shrub was trimmed away!'], () => {
+            this.cleared.add(`${fx},${fy}`);
+          }),
+        );
+      }
     }
   }
 
@@ -373,7 +466,7 @@ export class OverworldScene implements Scene {
     const y1 = Math.ceil((camY + SCREEN_H) / TILE) + 1;
     for (let ty = y0; ty <= y1; ty++) {
       for (let tx = x0; tx <= x1; tx++) {
-        s.blit(tileCanvas(this.map.tileAt(tx, ty)), tx * TILE - camX, ty * TILE - camY);
+        s.blit(tileCanvas(this.effTile(tx, ty)), tx * TILE - camX, ty * TILE - camY);
       }
     }
 

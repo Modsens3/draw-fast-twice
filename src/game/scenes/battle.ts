@@ -9,6 +9,7 @@ import { move, MoveDef, moveCategory } from '../data/moves';
 import { item } from '../data/items';
 import {
   applyStage,
+  BadgeBoosts,
   computeDamage,
   confusionTurns,
   expGain,
@@ -22,6 +23,7 @@ import {
   sleepTurns,
   StatStages,
 } from '../battle/calc';
+import { effectivenessAgainst } from '../data/typechart';
 import { addItem, expForLevel, makeMonster, Monster, refreshStats } from '../state';
 import { backSprite, frontSprite } from '../world/monsterSprites';
 
@@ -45,7 +47,14 @@ interface Combatant {
   displayHp: number; // animated HP bar value
 }
 
-const opposite = (s: 'player' | 'enemy') => (s === 'player' ? 'enemy' : 'player');
+export interface TrainerConfig {
+  name: string;
+  party: Monster[];
+  prize: number;
+  smart?: boolean; // gym-leader AI prefers super-effective moves
+  winText: string[]; // shown when the PLAYER wins
+  onWin?: () => void;
+}
 
 export class BattleScene implements Scene {
   readonly debugName = 'battle';
@@ -67,10 +76,21 @@ export class BattleScene implements Scene {
   private hpAnim: { side: 'player' | 'enemy'; to: number } | null = null;
   private learnCtx: { mon: Monster; moveId: string; index: number } | null = null;
   private participantIndex = 0;
+  private trainer: TrainerConfig | null = null;
+  private trainerIndex = 0;
 
-  constructor(wildSpeciesId: string, wildLevel: number) {
-    const wild = makeMonster(wildSpeciesId, wildLevel);
-    this.enemy = this.makeCombatant(wild);
+  constructor(wildSpeciesId: string, wildLevel: number, trainer?: TrainerConfig) {
+    if (trainer) {
+      this.trainer = trainer;
+      this.enemy = this.makeCombatant(trainer.party[0]);
+    } else {
+      const wild = makeMonster(wildSpeciesId, wildLevel);
+      this.enemy = this.makeCombatant(wild);
+    }
+  }
+
+  static forTrainer(trainer: TrainerConfig): BattleScene {
+    return new BattleScene('', 0, trainer);
   }
 
   private makeCombatant(mon: Monster): Combatant {
@@ -97,6 +117,7 @@ export class BattleScene implements Scene {
       enemyLevel: this.enemy.mon.level,
       playerHp: this.player?.mon.hp,
       outcome: this.outcome,
+      trainerName: this.trainer?.name ?? null,
       text: this.currentText,
     };
   }
@@ -117,7 +138,14 @@ export class BattleScene implements Scene {
 
   private name(c: Combatant): string {
     const n = c.mon.nickname ?? species(c.mon.speciesId).name;
-    return c === this.enemy ? `Wild ${n}` : n;
+    if (c !== this.enemy) return n;
+    return this.trainer ? `Foe ${n}` : `Wild ${n}`;
+  }
+
+  // Player-side badge boosts from earned badges.
+  private playerBadges(): BadgeBoosts {
+    const f = this.g.state.flags;
+    return { atk: !!f.badge_cliff, def: !!f.badge_tide, spd: !!f.badge_gale, spc: !!f.badge_ember };
   }
 
   // ---- battle turn logic ----
@@ -174,6 +202,21 @@ export class BattleScene implements Scene {
   private pickEnemyMove(): string {
     const usable = this.enemy.mon.moves.filter((m) => m.pp > 0);
     if (usable.length === 0) return 'ram'; // Struggle-style fallback
+    if (this.trainer?.smart && this.player) {
+      // Gym-leader AI: prefer the most effective damaging move.
+      const defTypes = species(this.player.mon.speciesId).types;
+      let best = usable[0];
+      let bestScore = -1;
+      for (const slot of usable) {
+        const m = move(slot.id);
+        const score = m.power > 0 ? m.power * effectivenessAgainst(m.type, defTypes) : 1;
+        if (score > bestScore) {
+          bestScore = score;
+          best = slot;
+        }
+      }
+      return best.id;
+    }
     return usable[Math.floor(Math.random() * usable.length)].id;
   }
 
@@ -262,9 +305,13 @@ export class BattleScene implements Scene {
     let totalDamage = 0;
     let lastEff = 10;
     let anyCrit = false;
+    const atkBadges = attacker === this.player ? this.playerBadges() : undefined;
+    const defBadges = defender === this.player ? this.playerBadges() : undefined;
     for (let h = 0; h < hits && defender.mon.hp - totalDamage > 0; h++) {
       const crit = rollCritical(attacker.mon, mv.effect === 'high_crit');
-      const res = computeDamage(attacker.mon, defender.mon, mv, attacker.stages, defender.stages, crit);
+      const res = computeDamage(
+        attacker.mon, defender.mon, mv, attacker.stages, defender.stages, crit, atkBadges, defBadges,
+      );
       totalDamage += res.damage;
       lastEff = res.effectiveness;
       anyCrit = anyCrit || (crit && res.damage > 0);
@@ -430,14 +477,38 @@ export class BattleScene implements Scene {
     if (c.mon.hp > 0) return;
     const out: Step[] = [{ text: `${this.name(c)} fainted!` }];
     if (c === this.enemy) {
-      // Clear remaining queued actions; battle is over.
+      // Clear remaining queued actions for this round.
       this.steps = [];
       const winner = this.player.mon;
-      const gained = expGain(this.enemy.mon, 1, false);
+      const gained = expGain(this.enemy.mon, 1, this.trainer !== null);
       grantStatExp(winner, this.enemy.mon.speciesId);
       out.push({ text: `${this.name(this.player)} gained ${gained} EXP!` });
       out.push({ run: () => this.applyExp(winner, gained) });
-      out.push({ run: () => this.finish('won') });
+      if (this.trainer && this.trainerIndex < this.trainer.party.length - 1) {
+        out.push({
+          run: () => {
+            this.trainerIndex++;
+            const next = this.trainer!.party[this.trainerIndex];
+            this.enemy = this.makeCombatant(next);
+            this.prepend([
+              { text: `${this.trainer!.name} sent out ${species(next.speciesId).name}!` },
+            ]);
+          },
+        });
+      } else if (this.trainer) {
+        out.push({ text: `${this.g.state.playerName} defeated ${this.trainer.name}!` });
+        for (const line of this.trainer.winText) out.push({ text: line });
+        out.push({ text: `Got $${this.trainer.prize} for winning!` });
+        out.push({
+          run: () => {
+            this.g.state.money += this.trainer!.prize;
+            this.trainer!.onWin?.();
+            this.finish('won');
+          },
+        });
+      } else {
+        out.push({ run: () => this.finish('won') });
+      }
     } else {
       this.steps = [];
       const next = this.g.state.party.find((m) => m.hp > 0);
@@ -502,6 +573,10 @@ export class BattleScene implements Scene {
 
   private actRun(): void {
     this.phase = 'steps';
+    if (this.trainer) {
+      this.say("No! There's no running from a trainer battle!");
+      return;
+    }
     this.runAttempts++;
     const ok = rollEscape(
       this.effectiveSpeed(this.player),
@@ -520,6 +595,11 @@ export class BattleScene implements Scene {
   private actUseItem(g: GameContext, itemId: string): void {
     this.phase = 'steps';
     const def = item(itemId);
+    if (def.effect.kind === 'ball' && this.trainer) {
+      this.say('The trainer blocked the CAPSULE!');
+      this.say("Don't be a thief!");
+      return;
+    }
     addItem(g.state, itemId, -1);
     if (def.effect.kind === 'ball') {
       this.say(`${g.state.playerName} threw a ${def.name}!`);
@@ -588,7 +668,12 @@ export class BattleScene implements Scene {
         this.participantIndex = g.state.party.indexOf(active);
         this.player = this.makeCombatant(active);
         g.state.seenDex[this.enemy.mon.speciesId] = true;
-        this.say(`Wild ${species(this.enemy.mon.speciesId).name} appeared!`);
+        if (this.trainer) {
+          this.say(`${this.trainer.name} wants to battle!`);
+          this.say(`${this.trainer.name} sent out ${species(this.enemy.mon.speciesId).name}!`);
+        } else {
+          this.say(`Wild ${species(this.enemy.mon.speciesId).name} appeared!`);
+        }
         this.say(`Go! ${species(this.player.mon.speciesId).name}!`);
         this.phase = 'steps';
       }

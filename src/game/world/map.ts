@@ -16,6 +16,18 @@ export interface SignDef {
   text: string[];
 }
 
+export interface TrainerDef {
+  name: string;
+  party: [string, number][]; // [speciesId, level]
+  prize: number;
+  sightRange: number; // tiles of line-of-sight along facing direction
+  smart?: boolean;
+  beforeText: string[]; // challenge lines
+  winText: string[]; // what they say when beaten
+  afterText: string[]; // overworld dialog once defeated
+  badge?: string; // flag granted on victory (gym leaders)
+}
+
 export interface NpcDef {
   id: string;
   x: number;
@@ -26,6 +38,7 @@ export interface NpcDef {
   dialog: string[];
   // When set, talking to this NPC fires a story event instead of plain dialog.
   event?: string;
+  trainer?: TrainerDef;
 }
 
 export interface EventDef {
