@@ -251,6 +251,72 @@ const LIST: SpeciesDef[] = [
     learnset: [[1, 'wyrmgale'], [1, 'glare'], [10, 'quickdart'], [20, 'slashfang'], [35, 'surgewave']],
     dexEntry: 'Sailors swear the far cape hides these. Few have proof.',
   }),
+  // --- Route 2 / Halite Cave / Pyrgos region ---
+  S({
+    id: 'pelikos', dexNo: 30, name: 'PELIKOS', category: 'DOCKBIRD', types: ['WATER', 'FLYING'],
+    base: [50, 40, 40, 60, 45], catchRate: 190, baseExp: 77, growth: 'medium_fast',
+    evolution: { level: 25, into: 'pelagorn' },
+    learnset: [[1, 'peck'], [1, 'tidejet'], [12, 'gustline'], [20, 'mistveil'], [28, 'galewing']],
+    dexEntry: 'It scoops whole tidepools into its beak pouch, crabs and all.',
+  }),
+  S({
+    id: 'pelagorn', dexNo: 31, name: 'PELAGORN', category: 'GALEBIRD', types: ['WATER', 'FLYING'],
+    base: [70, 55, 55, 85, 65], catchRate: 75, baseExp: 154, growth: 'medium_fast',
+    learnset: [[1, 'peck'], [1, 'tidejet'], [20, 'mistveil'], [30, 'galewing'], [40, 'surgewave']],
+    dexEntry: 'It rides storms far past the horizon and returns with strange shells.',
+  }),
+  S({
+    id: 'urchinet', dexNo: 32, name: 'URCHINET', category: 'SPINEBALL', types: ['WATER'],
+    base: [45, 55, 70, 30, 55], catchRate: 190, baseExp: 81, growth: 'medium_fast',
+    evolution: { level: 26, into: 'urchidon' },
+    learnset: [[1, 'needlejab'], [1, 'tidejet'], [14, 'ironhide'], [22, 'venomsting'], [30, 'surgewave']],
+    dexEntry: 'Its spines drink brine and glow faintly violet at low tide.',
+  }),
+  S({
+    id: 'urchidon', dexNo: 33, name: 'URCHIDON', category: 'REEFCROWN', types: ['WATER', 'POISON'],
+    base: [65, 75, 95, 45, 75], catchRate: 60, baseExp: 160, growth: 'medium_fast',
+    learnset: [[1, 'needlejab'], [1, 'tidejet'], [22, 'venomsting'], [32, 'sludgeball'], [42, 'surgewave']],
+    dexEntry: 'Reefs grow around it like a crown. Divers give it a wide berth.',
+  }),
+  S({
+    id: 'vesperon', dexNo: 34, name: 'VESPERON', category: 'DUSKBAT', types: ['POISON', 'FLYING'],
+    base: [40, 45, 35, 55, 40], catchRate: 255, baseExp: 54, growth: 'medium_fast',
+    evolution: { level: 22, into: 'vesperyx' },
+    learnset: [[1, 'gnaw'], [1, 'glare'], [10, 'venomsting'], [17, 'gustline'], [26, 'dizzyspin']],
+    dexEntry: 'It naps hooked to cave salt. Its squeak sets crystals ringing.',
+  }),
+  S({
+    id: 'vesperyx', dexNo: 35, name: 'VESPERYX', category: 'NIGHTWING', types: ['POISON', 'FLYING'],
+    base: [75, 80, 70, 90, 65], catchRate: 90, baseExp: 135, growth: 'medium_fast',
+    learnset: [[1, 'gnaw'], [1, 'venomsting'], [17, 'gustline'], [30, 'dizzyspin'], [40, 'galewing']],
+    dexEntry: 'Its wingbeats are silent as dusk. Miners follow it to fresh air.',
+  }),
+  S({
+    id: 'crystalit', dexNo: 36, name: 'CRYSTALIT', category: 'SALTGEM', types: ['ROCK'],
+    base: [40, 60, 85, 25, 55], catchRate: 150, baseExp: 86, growth: 'medium_slow',
+    evolution: { level: 30, into: 'crystrag' },
+    learnset: [[1, 'ram'], [1, 'ironhide'], [13, 'stonecast'], [21, 'glare'], [31, 'mirrordance']],
+    dexEntry: 'A living halite shard. Lamplight scatters through it in rainbows.',
+  }),
+  S({
+    id: 'crystrag', dexNo: 37, name: 'CRYSTRAG', category: 'GEODEHULK', types: ['ROCK'],
+    base: [65, 85, 115, 40, 80], catchRate: 60, baseExp: 168, growth: 'medium_slow',
+    learnset: [[1, 'stonecast'], [1, 'ironhide'], [21, 'mirrordance'], [34, 'crushblow'], [44, 'quakestomp']],
+    dexEntry: 'Its cracked hide hides a geode heart. It hums in the dark.',
+  }),
+  S({
+    id: 'thistletot', dexNo: 38, name: 'THISTLETOT', category: 'BURRCHILD', types: ['GRASS'],
+    base: [40, 50, 45, 50, 40], catchRate: 235, baseExp: 60, growth: 'medium_fast',
+    evolution: { level: 21, into: 'thistrella' },
+    learnset: [[1, 'ram'], [1, 'vinelash'], [11, 'needlejab'], [18, 'sporeburst'], [26, 'sapdrain']],
+    dexEntry: 'It hitches rides on travelers cloaks and drops off at nice meadows.',
+  }),
+  S({
+    id: 'thistrella', dexNo: 39, name: 'THISTRELLA', category: 'BRAMBLE', types: ['GRASS', 'POISON'],
+    base: [60, 75, 65, 70, 60], catchRate: 90, baseExp: 132, growth: 'medium_fast',
+    learnset: [[1, 'vinelash'], [1, 'needlejab'], [18, 'sporeburst'], [28, 'sapdrain'], [38, 'petalgale']],
+    dexEntry: 'Its bramble skirt snags whole hedgerows. Farmers both curse and thank it.',
+  }),
 ];
 
 export const SPECIES: Record<string, SpeciesDef> = Object.fromEntries(LIST.map((s) => [s.id, s]));

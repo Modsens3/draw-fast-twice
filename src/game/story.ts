@@ -80,6 +80,58 @@ export function handleEvent(g: GameContext, id: string): void {
     g.scenes.push(new ShopScene(['capsule', 'tonic', 'antivenom', 'nervesalt']));
     return;
   }
+  if (id === 'shop_pyrgos') {
+    g.scenes.push(
+      new ShopScene(['capsule', 'grand_capsule', 'super_tonic', 'antivenom', 'burnbalm', 'wakestone']),
+    );
+    return;
+  }
+  if (id === 'item_cave_tonic') {
+    if (g.state.flags.took_cave_tonic) {
+      g.scenes.push(new DialogScene(['There is nothing left here.']));
+      return;
+    }
+    g.state.flags.took_cave_tonic = true;
+    addItem(g.state, 'tonic', 1);
+    g.scenes.push(new DialogScene([`${g.state.playerName} found a TONIC!`]));
+    return;
+  }
+  if (id === 'item_cave_nervesalt') {
+    if (g.state.flags.took_cave_nervesalt) {
+      g.scenes.push(new DialogScene(['There is nothing left here.']));
+      return;
+    }
+    g.state.flags.took_cave_nervesalt = true;
+    addItem(g.state, 'nervesalt', 1);
+    g.scenes.push(new DialogScene([`${g.state.playerName} found a NERVESALT!`]));
+    return;
+  }
+  if (id === 'eris_thanks') {
+    const beatBoth = g.state.flags.beat_cave_grunt_a && g.state.flags.beat_cave_grunt_b;
+    if (!beatBoth) {
+      g.scenes.push(
+        new DialogScene([
+          'RESEARCHER: TEAM ERIS thugs are shaking down the whole cave!',
+          'They talk of some "great geode" out west... please drive them off!',
+        ]),
+      );
+      return;
+    }
+    if (!g.state.flags.eris_thanks_given) {
+      g.state.flags.eris_thanks_given = true;
+      addItem(g.state, 'grand_capsule', 3);
+      g.scenes.push(
+        new DialogScene([
+          'RESEARCHER: You drove them off! The crystals are safe... for now.',
+          `${g.state.playerName} received 3 GRAND CAPSULES!`,
+          'RESEARCHER: They kept muttering about the watchtower west of PYRGOS. Stay sharp.',
+        ]),
+      );
+      return;
+    }
+    g.scenes.push(new DialogScene(['RESEARCHER: The cave hums happily again. Thank you!']));
+    return;
+  }
   const starter = STARTERS[id];
   if (starter) {
     const { flags } = g.state;

@@ -14,6 +14,36 @@ export interface EncounterTable {
 export const SLOT_WEIGHTS = [51, 51, 39, 25, 25, 25, 13, 10, 10, 7];
 
 export const ENCOUNTERS: Record<string, EncounterTable> = {
+  route2: {
+    rate: 25,
+    slots: [
+      { speciesId: 'thistletot', level: 12 },
+      { speciesId: 'sparvos', level: 13 },
+      { speciesId: 'thistletot', level: 13 },
+      { speciesId: 'pelikos', level: 12 },
+      { speciesId: 'mysling', level: 13 },
+      { speciesId: 'pelikos', level: 14 },
+      { speciesId: 'thistletot', level: 14 },
+      { speciesId: 'vipion', level: 14 },
+      { speciesId: 'pelikos', level: 15 },
+      { speciesId: 'thistrella', level: 21 },
+    ],
+  },
+  halite_cave: {
+    rate: 20,
+    slots: [
+      { speciesId: 'vesperon', level: 14 },
+      { speciesId: 'vesperon', level: 15 },
+      { speciesId: 'petraw', level: 14 },
+      { speciesId: 'vesperon', level: 13 },
+      { speciesId: 'crystalit', level: 15 },
+      { speciesId: 'petraw', level: 15 },
+      { speciesId: 'crystalit', level: 16 },
+      { speciesId: 'vesperon', level: 16 },
+      { speciesId: 'crystalit', level: 17 },
+      { speciesId: 'petrock', level: 25 },
+    ],
+  },
   route1: {
     rate: 25,
     slots: [
